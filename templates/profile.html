@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="profile-page">
+  <div class="page-header">
+    <h2 class="page-title">My Profile</h2>
+  </div>
+
+  <div class="profile-container">
+    <!-- Update Name Section -->
+    <div class="profile-section">
+      <h3 class="section-title">Account Details</h3>
+      <form method="POST" class="profile-form">
+        <input type="hidden" name="action" value="update_name">
+
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" value="{{ user.username }}" readonly>
+        </div>
+
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" value="{{ user.email }}" readonly>
+        </div>
+
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" name="name" value="{{ user.name or '' }}" placeholder="Enter your full name">
+        </div>
+
+        <button type="submit" class="btn btn-primary">Update Name</button>
+      </form>
+    </div>
+
+    <!-- Change Password Section -->
+    <div class="profile-section">
+      <h3 class="section-title">Change Password</h3>
+      <form method="POST" class="profile-form">
+        <input type="hidden" name="action" value="change_password">
+
+        <div class="form-group">
+          <label>Old Password</label>
+          <input type="password" name="old_password" required placeholder="Enter old password">
+        </div>
+
+        <div class="form-group">
+          <label>New Password</label>
+          <input type="password" name="new_password" required placeholder="Enter new password">
+        </div>
+
+        <div class="form-group">
+          <label>Confirm New Password</label>
+          <input type="password" name="confirm_password" required placeholder="Confirm new password">
+        </div>
+
+        <button type="submit" class="btn btn-primary">Change Password</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

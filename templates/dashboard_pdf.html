@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard Summary Report</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      padding: 40px;
+      color: #2c3e50;
+      background: #fff;
+    }
+
+    h1, h2, h3 {
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+
+    .section {
+      margin-bottom: 40px;
+    }
+
+    .chart {
+      display: block;
+      width: 100%;
+      max-width: 550px;
+      height: auto;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      padding: 8px;
+      background-color: #fefefe;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f4f4f4;
+    }
+
+    .highlight {
+      font-weight: bold;
+      color: #007bff;
+    }
+
+    .summary-table {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📊 Dashboard Summary for {{ username }}</h1>
+  <p><strong>Generated on:</strong> {{ current_date }}</p>
+
+  <div class="section">
+    <h2>📘 Balance Sheet Overview</h2>
+    {% if balance_chart %}
+      <img src="{{ balance_chart }}" alt="Balance Chart" class="chart">
+    {% else %}
+      <p>No balance chart available.</p>
+    {% endif %}
+  </div>
+
+  <div class="section">
+    <h2>📈 Profit & Loss Overview</h2>
+    {% if profit_chart %}
+      <img src="{{ profit_chart }}" alt="Profit Chart" class="chart">
+    {% else %}
+      <p>No profit chart available.</p>
+    {% endif %}
+  </div>
+
+  <div class="section">
+    <h2>💡 Financial Summary</h2>
+    <table class="summary-table">
+      <thead>
+        <tr><th>Metric</th><th>Amount</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Total Balance (Assets)</td>
+          <td>₹{{ "%.2f" | format(total_balance) }}</td>
+        </tr>
+        <tr>
+          <td>Total Income</td>
+          <td>₹{{ "%.2f" | format(total_income) }}</td>
+        </tr>
+        <tr>
+          <td>Total Expenses</td>
+          <td>₹{{ "%.2f" | format(total_expenses) }}</td>
+        </tr>
+        <tr>
+          <td>Output GST (on Income)</td>
+          <td>₹{{ "%.2f" | format(gst_summary.get('output_gst', 0.0)) }}</td>
+        </tr>
+        <tr>
+          <td>Input GST (on Expenses)</td>
+          <td>₹{{ "%.2f" | format(gst_summary.get('input_gst', 0.0)) }}</td>
+        </tr>
+        <tr>
+          <td class="highlight">Net GST Payable</td>
+          <td class="highlight">₹{{ "%.2f" | format(gst_summary.get('net_gst', 0.0)) }}</td>
+        </tr>
+        <tr>
+          <td class="highlight">Net Profit / Loss</td>
+          <td class="highlight">₹{{ "%.2f" | format(total_income - total_expenses) }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  {% if additional_totals %}
+  <div class="section">
+    <h2>🧾 Other Transaction Totals</h2>
+    <table>
+      <thead>
+        <tr><th>Transaction Type</th><th>Total Amount</th></tr>
+      </thead>
+      <tbody>
+        {% for type, amount in additional_totals.items() %}
+        <tr>
+          <td>{{ type }}</td>
+          <td>₹{{ "%.2f" | format(amount) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</body>
+</html>

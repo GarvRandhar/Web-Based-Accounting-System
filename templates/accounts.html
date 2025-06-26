@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="page-header">
+  <h2 class="page-title">Accounts</h2>
+  <div class="page-actions">
+    <button id="addAccountBtn" class="action-btn">
+      <i class="fas fa-plus"></i> Add New Account
+    </button>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-container">
+      {% for category, message in messages %}
+        <p class="flash {{ category }}">{{ message }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<div class="accounts-container">
+  <!-- Accounts Cards View -->
+  <div class="accounts-grid">
+    {% for account in accounts %}
+    <div class="account-card">
+      <div class="account-card-header">
+        <div class="account-name">{{ account.name }}</div>
+        <div class="account-type">{{ account.type }}</div>
+      </div>
+      <div class="account-card-body">
+        <div class="account-balance {{ 'positive-balance' if account.balance >= 0 else 'negative-balance' }}">
+          ₹{{ "%.2f"|format(account.balance) }}
+        </div>
+      </div>
+      <div class="account-card-footer">
+        <form method="POST" action="{{ url_for('delete_account', account_id=account.id) }}">
+          <button type="submit" class="delete-btn" title="Delete Account">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Table View (Hidden on Mobile) -->
+  <div class="accounts-table-container">
+    <table class="accounts-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Balance</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for account in accounts %}
+        <tr>
+          <td>{{ account.name }}</td>
+          <td><span class="account-type-badge {{ account.type|lower }}">{{ account.type }}</span></td>
+          <td class="account-transaction-statement">
+            ₹{{ "%.2f"|format(account.balance) }}
+          </td>
+          <td>
+            <form method="POST" action="{{ url_for('delete_account', account_id=account.id) }}">
+              <button type="submit" class="delete-btn" title="Delete Account">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Add Account Form (Initially Hidden) -->
+  <div id="addAccountForm" class="add-account-panel">
+    <div class="form-header">
+      <h3 class="form-title">Add New Account</h3>
+      <button id="closeFormBtn" class="close-btn">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <form method="POST" action="{{ url_for('add_account') }}" class="add-account-form">
+      <div class="form-group">
+        <label for="name">Account Name:</label>
+        <input type="text" id="name" name="name" required placeholder="Enter account name">
+      </div>
+
+      <div class="form-group">
+        <label for="type">Account Type:</label>
+        <select id="type" name="type" required>
+          <option value="">Select account type</option>
+          <option value="Asset">Asset</option>
+          <option value="Liability">Liability</option>
+          <option value="Income">Income</option>
+          <option value="Expense">Expense</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="balance">Initial Balance:</label>
+        <input type="number" id="balance" name="balance" step="0.01" required placeholder="0.00">
+      </div>
+
+      <div class="form-actions">
+        <button type="button" id="cancelBtn" class="cancel-btn">Cancel</button>
+        <button type="submit" class="primary-btn">
+          <i class="fas fa-save"></i> Add Account
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Toggle Add Account Form
+  document.getElementById('addAccountBtn').addEventListener('click', function() {
+    document.getElementById('addAccountForm').classList.add('show');
+  });
+
+  document.getElementById('closeFormBtn').addEventListener('click', function() {
+    document.getElementById('addAccountForm').classList.remove('show');
+  });
+
+  document.getElementById('cancelBtn').addEventListener('click', function() {
+    document.getElementById('addAccountForm').classList.remove('show');
+  });
+</script>
+
+{% endblock %}

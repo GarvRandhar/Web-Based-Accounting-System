@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="report-container">
+  <h2>Balance Sheet</h2>
+  <div class="balance-sheet-grid">
+    <div class="column">
+      <h3>Assets</h3>
+      <ul class="account-list">
+        {% for asset in assets %}
+        <li>
+          <span class="account-name balance-sheet-assets">{{ asset.name }}</span>
+          <span class="account-value balance-sheet-assets">₹{{ "%.2f"|format(asset.balance) }}</span>
+        </li>
+        {% endfor %}
+        <li class="total">
+          <strong class="balance-sheet-assets">Total Assets:</strong>
+          <strong class="balance-sheet-assets">₹{{ "%.2f"|format(total_assets) }}</strong>
+        </li>
+      </ul>
+    </div>
+
+    <div class="column">
+      <h3>Liabilities</h3>
+      <ul class="account-list">
+        {% for liability in liabilities %}
+        <li>
+          <span class="account-name balance-sheet-liabilities">{{ liability.name }}</span>
+          <span class="account-value balance-sheet-liabilities">₹{{ "%.2f"|format(liability.balance) }}</span>
+        </li>
+        {% endfor %}
+        <li class="total">
+          <strong class="balance-sheet-liabilities">Total Liabilities:</strong>
+          <strong class="balance-sheet-liabilities">₹{{ "%.2f"|format(total_liabilities) }}</strong>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="equity-summary">
+    <h3>Equity</h3>
+    <p><strong>Equity (Assets - Liabilities):</strong> ₹{{ "%.2f"|format(equity) }}</p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="reports-modern">
+  <div class="reports-modern-header">
+    <h2 class="reports-modern-title">Financial Reports</h2>
+  </div>
+
+  <div class="reports-content">
+    <!-- Filter Form -->
+    <div class="reports-filter-card">
+      <form method="POST" class="reports-filter-form">
+        <div class="reports-filter-inputs">
+          <div class="reports-filter-group">
+            <label for="start_date" class="reports-filter-label">Start Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}" class="reports-filter-input">
+          </div>
+
+          <div class="reports-filter-group">
+            <label for="end_date" class="reports-filter-label">End Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}" class="reports-filter-input">
+          </div>
+
+          <div class="reports-filter-actions">
+            <button type="submit" class="reports-filter-button">
+              <span class="reports-button-icon">🔍</span>
+              Apply Filters
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <div class="reports-export">
+        <a href="{{ url_for('export_report', start_date=start_date, end_date=end_date) }}" class="reports-export-button">
+          <span class="reports-button-icon">📤</span>
+          Export Report as CSV
+        </a>
+      </div>
+    </div>
+
+    <!-- GST Summary -->
+    <div class="reports-gst-summary">
+      <h3 class="reports-table-title">GST Summary</h3>
+      <table class="reports-data-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Amount (₹)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Output GST (Income)</td>
+            <td class="reports-income">₹{{ "%.2f"|format(gst_summary.get('output_gst', 0.0)) }}</td>
+          </tr>
+          <tr>
+            <td>Input GST (Expense)</td>
+            <td class="reports-expense">₹{{ "%.2f"|format(gst_summary.get('input_gst', 0.0)) }}</td>
+          </tr>
+          <tr class="reports-total-row">
+            <td><strong>Net GST Payable</strong></td>
+            <td class="reports-{{ 'profit' if gst_summary.get('net_gst', 0.0) >= 0 else 'loss' }}">
+              <strong>₹{{ "%.2f"|format(gst_summary.get('net_gst', 0.0)) }}</strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="reports-charts">
+      <div class="reports-chart-card">
+        <h3 class="reports-chart-title">Balance Sheet</h3>
+        <div class="reports-chart-container">
+          <canvas id="balanceChart"></canvas>
+        </div>
+      </div>
+
+      <div class="reports-chart-card">
+        <h3 class="reports-chart-title">Profit and Loss <span class="reports-date-range">({{ start_date }} to {{ end_date }})</span></h3>
+        <div class="reports-chart-container">
+          <canvas id="profitChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Tables Section -->
+    <div class="reports-tables">
+      <div class="reports-table-card">
+        <h3 class="reports-table-title">Balance Sheet Details</h3>
+        <div class="reports-table-container">
+          <table class="reports-data-table">
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for key, value in balance.items() %}
+              <tr>
+                <td>{{ key }}</td>
+                <td class="reports-table-amount">₹{{ "%.2f"|format(value) }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="reports-table-card">
+        <h3 class="reports-table-title">Profit and Loss Details</h3>
+        <div class="reports-table-container">
+          <table class="reports-data-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Income</td>
+                <td class="reports-table-amount reports-income">₹{{ "%.2f"|format(profit.get('Income', 0)) }}</td>
+              </tr>
+              <tr>
+                <td>Expenses</td>
+                <td class="reports-table-amount reports-expense">₹{{ "%.2f"|format(profit.get('Expense', 0)) }}</td>
+              </tr>
+              <tr class="reports-total-row">
+                <td><strong>Net Profit/Loss</strong></td>
+                <td class="reports-table-amount reports-{{ 'profit' if (profit.get('Income', 0) - profit.get('Expense', 0)) >= 0 else 'loss' }}">
+                  <strong>₹{{ "%.2f"|format(profit.get('Income', 0) - profit.get('Expense', 0)) }}</strong>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const balanceCtx = document.getElementById('balanceChart');
+  new Chart(balanceCtx, {
+    type: 'pie',
+    data: {
+      labels: {{ balance.keys()|list|tojson }},
+      datasets: [{
+        label: 'Balance Sheet',
+        data: {{ balance.values()|list|tojson }},
+        backgroundColor: [
+          '#4F46E5', '#06B6D4', '#14B8A6', '#10B981', '#A3E635', '#FBBF24', '#F97316', '#F43F5E'
+        ],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom' } }
+    }
+  });
+
+  const profitCtx = document.getElementById('profitChart');
+  new Chart(profitCtx, {
+    type: 'bar',
+    data: {
+      labels: ['Income', 'Expense'],
+      datasets: [{
+        label: 'Profit & Loss',
+        data: [{{ profit.get('Income', 0) }}, {{ profit.get('Expense', 0) }}],
+        backgroundColor: ['#10B981', '#F43F5E']
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true } },
+      plugins: { legend: { display: false } }
+    }
+  });
+</script>
+
+{% endblock %}

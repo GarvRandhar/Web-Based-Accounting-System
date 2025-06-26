@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="auth-container">
+  <h2 id="form-title">Login</h2>
+
+  <!-- Flash Messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-container">
+        {% for category, message in messages %}
+          <p class="flash {{ category }}">{{ message }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="form-card">
+    <!-- Login Form (visible by default) -->
+    <form id="login-form" method="post" action="{{ url_for('login') }}">
+      <div class="form-group">
+        <input type="text" id="username" name="username" placeholder=" " required />
+        <label for="username">Username</label>
+        <i class="fas fa-user input-icon"></i>
+      </div>
+      <div class="form-group">
+        <input type="password" id="login-password" name="password" required placeholder=" ">
+        <label for="login-password">Password</label>
+        <i class="fas fa-lock input-icon"></i>
+      </div>
+
+      <button type="submit">
+        <i class="fas fa-sign-in-alt"></i> Login
+      </button>
+
+      <div class="form-switch">
+        Don't have an account?
+        <a href="#" onclick="switchToRegister()">Register</a>
+      </div>
+    </form>
+
+    <!-- Register Form (hidden by default) -->
+    <form id="register-form" method="post" action="{{ url_for('register') }}" class="visibility-hidden">
+      <div class="form-group">
+        <input type="text" id="register-username" name="username" value="{{ request.form.get('username', '') }}" required placeholder=" ">
+        <label for="register-username">Username</label>
+        <i class="fas fa-user input-icon"></i>
+      </div>
+
+      <div class="form-group">
+        <input type="email" id="register-email" name="email" value="{{ request.form.get('email', '') }}" required placeholder=" ">
+        <label for="register-email">Email</label>
+        <i class="fas fa-envelope input-icon"></i>
+      </div>
+
+      <div class="form-group">
+        <input type="password" id="register-password" name="password" required placeholder=" ">
+        <label for="register-password">Password</label>
+        <i class="fas fa-lock input-icon"></i>
+      </div>
+
+      <div class="form-group">
+        <input type="password" id="register-confirm-password" name="confirm_password" required placeholder=" ">
+        <label for="register-confirm-password">Confirm Password</label>
+        <i class="fas fa-lock input-icon"></i>
+      </div>
+
+      <button type="submit">
+        <i class="fas fa-user-plus"></i> Register
+      </button>
+
+      <div class="form-switch">
+        Already have an account?
+        <a href="#" onclick="switchToLogin()">Login</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function switchToRegister() {
+    document.getElementById('login-form').classList.add('visibility-hidden');
+    document.getElementById('register-form').classList.remove('visibility-hidden');
+    document.getElementById('form-title').textContent = 'Register';
+}
+
+function switchToLogin() {
+    document.getElementById('register-form').classList.add('visibility-hidden');
+    document.getElementById('login-form').classList.remove('visibility-hidden');
+    document.getElementById('form-title').textContent = 'Login';
+}
+
+{% if form_type == 'register' %}
+    switchToRegister();
+{% else %}
+    switchToLogin();
+{% endif %}
+
+
+document.addEventListener('DOMContentLoaded', function() {
+  const flashMessages = document.querySelectorAll('.flash');
+  flashMessages.forEach(function(flash) {
+    setTimeout(() => {
+      flash.style.transition = "opacity 0.5s ease";
+      flash.style.opacity = "0";
+      setTimeout(() => flash.remove(), 500);
+    }, 1000);
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+{% block content %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-container">
+      {% for category, message in messages %}
+        <p class="flash {{ category }}">{{ message }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<div class="dashboard-header">
+  <h2 class="welcome-title">Welcome, {{ username }}!</h2>
+
+  <form method="POST" action="{{ url_for('export_dashboard_pdf') }}" id="pdfExportForm" class="export-form">
+    <input type="hidden" name="balance_chart" id="balanceChartImage">
+    <input type="hidden" name="profit_chart" id="profitChartImage">
+    <button type="button" class="export-btn" onclick="preparePdfExport()">
+      <i class="fas fa-file-pdf"></i> Export Dashboard as PDF
+    </button>
+  </form>
+</div>
+
+<div class="dashboard-container">
+  <div class="widget-row summary-row">
+    <div class="widget summary-widget">
+      <div class="widget-icon balance-icon">
+        <i class="fas fa-wallet"></i>
+      </div>
+      <div class="widget-content">
+        <h3>Total Assets Balance</h3>
+        <div class="balance-amount {{ 'positive-balance' if total_balance >= 0 else 'negative-balance' }}">
+          ₹{{ "%.2f"|format(total_balance) }}
+        </div>
+        <p class="widget-note">(From Asset accounts only)</p>
+      </div>
+    </div>
+
+    <div class="widget summary-widget">
+      <div class="widget-icon income-icon">
+        <i class="fas fa-arrow-up"></i>
+      </div>
+      <div class="widget-content">
+        <h3>Total Income</h3>
+        <div class="income-amount">₹{{ "%.2f"|format(total_income) }}</div>
+      </div>
+    </div>
+
+    <div class="widget summary-widget">
+      <div class="widget-icon expense-icon">
+        <i class="fas fa-arrow-down"></i>
+      </div>
+      <div class="widget-content">
+        <h3>Total Expenses</h3>
+        <div class="expense-amount">₹{{ "%.2f"|format(total_expenses) }}</div>
+      </div>
+    </div>
+
+    <div class="widget summary-widget">
+      <div class="widget-icon tax-icon">
+        <i class="fas fa-receipt"></i>
+      </div>
+      <div class="widget-content">
+        <h3>Net GST Payable</h3>
+        <div class="tax-amount">₹{{ "%.2f"|format(gst_summary.get('net_gst', 0.0)) }}</div>
+        <p class="widget-note">(Output GST - Input GST)</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="widget-row charts-row">
+    <div class="widget chart-widget">
+      <div class="widget-header">
+        <h3>Monthly Overview</h3>
+      </div>
+      <div class="chart-container">
+        <canvas id="incomeExpenseChart" width="450" height="300"></canvas>
+      </div>
+    </div>
+
+    <div class="widget chart-widget">
+      <div class="widget-header">
+        <h3>Asset Account Balance Breakdown</h3>
+      </div>
+      <div class="chart-container">
+        <canvas id="balanceChart" width="450" height="300"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="widget-row data-row">
+    <div class="widget data-widget">
+      <div class="widget-header">
+        <h3>Account Summary</h3>
+      </div>
+      <div class="accounts-list">
+        {% if accounts %}
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Type</th>
+                <th>Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for account in accounts %}
+              <tr>
+                <td>{{ account.name }}</td>
+                <td>{{ account.type }}</td>
+                <td class="{% if account.type == 'Asset' and account.balance >= 0 %}positive-balance
+                {% elif account.type == 'Liability' %}negative-balance
+                {% elif account.type == 'Income' %}positive-balance
+                {% elif account.type == 'Expense' %}negative-balance
+                {% endif %}">
+                  ₹{{ "%.2f"|format(account.balance) }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="no-data-message">No accounts found. <a href="{{ url_for('accounts') }}">Add an account</a> to get started.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="widget data-widget">
+      <div class="widget-header">
+        <h3>Recent Transactions</h3>
+      </div>
+      <div class="recent-transactions">
+        {% if recent_transactions %}
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for transaction in recent_transactions %}
+              <tr>
+                <td>{{ transaction.date.strftime('%m/%d/%Y') }}</td>
+                <td>{{ transaction.description }}</td>
+                <td class="{% if transaction.transaction_type == 'Income' %}income-amount
+                {% elif transaction.transaction_type == 'Expense' %}expense-amount
+                {% elif transaction.transaction_type == 'Asset Purchase' %}expense-amount
+                {% elif transaction.transaction_type == 'Asset Sale' %}income-amount
+                {% elif transaction.transaction_type == 'Loan Taken' %}income-amount
+                {% elif transaction.transaction_type == 'Loan Repayment' %}expense-amount
+                {% else %}default-amount{% endif %}">
+                  ₹{{ "%.2f"|format(transaction.amount) }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="no-data-message">No transactions found. <a href="{{ url_for('transactions') }}">Add a transaction</a> to get started.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const ctxBar = document.getElementById('incomeExpenseChart');
+  const profitChart = new Chart(ctxBar, {
+    type: 'bar',
+    data: {
+      labels: {{ months|tojson }},
+      datasets: [
+        {
+          label: 'Income',
+          backgroundColor: '#2ecc71',
+          data: {{ income_chart|tojson }}
+        },
+        {
+          label: 'Expense',
+          backgroundColor: '#e74c3c',
+          data: {{ expense_chart|tojson }}
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'top' } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  const ctxPie = document.getElementById('balanceChart');
+  const balanceChart = new Chart(ctxPie, {
+    type: 'doughnut',
+    data: {
+      labels: {{ balance_labels|tojson }},
+      datasets: [{
+        data: {{ balance_values|tojson }},
+        backgroundColor: ['#3498db', '#2ecc71', '#f1c40f', '#e67e22', '#9b59b6', '#34495e']
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } }
+    }
+  });
+
+  function preparePdfExport() {
+    const balanceCanvas = document.getElementById('balanceChart');
+    const profitCanvas = document.getElementById('incomeExpenseChart');
+
+    if (balanceCanvas && profitCanvas) {
+      document.getElementById('balanceChartImage').value = balanceCanvas.toDataURL('image/png');
+      document.getElementById('profitChartImage').value = profitCanvas.toDataURL('image/png');
+      setTimeout(() => {
+        document.getElementById('pdfExportForm').submit();
+      }, 300);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+  const flashMessages = document.querySelectorAll('.flash');
+  flashMessages.forEach(function(flash) {
+    setTimeout(() => {
+      flash.style.transition = "opacity 0.5s ease";
+      flash.style.opacity = "0";
+      setTimeout(() => flash.remove(), 500);
+      }, 1000);
+    });
+  });
+</script>
+{% endblock %}

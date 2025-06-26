@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="report-container">
+  <div class="report-header">
+    <h2>Income Statement</h2>
+    <form method="POST" class="date-range-form">
+      <label for="start_date">Start Date:</label>
+      <input type="date" name="start_date" value="{{ start_date }}">
+      <label for="end_date">End Date:</label>
+      <input type="date" name="end_date" value="{{ end_date }}">
+      <button type="submit" class="btn btn-primary">Filter</button>
+    </form>
+  </div>
+
+  <div class="report-summary">
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th>Amount (₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Total Income</strong></td>
+          <td class="text-success">₹{{ "%.2f"|format(income_total) }}</td>
+        </tr>
+        <tr>
+          <td><strong>Total Expenses</strong></td>
+          <td class="text-danger">₹{{ "%.2f"|format(expense_total) }}</td>
+        </tr>
+        <tr class="net-total">
+          <td><strong>Net Profit / Loss</strong></td>
+          <td class="{{ 'text-success' if net_income >= 0 else 'text-danger' }}">
+            <strong>₹{{ "%.2f"|format(net_income) }}</strong>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

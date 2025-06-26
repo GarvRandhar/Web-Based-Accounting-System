@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="ledger-modern">
+  <div class="ledger-modern-header">
+    <h2 class="ledger-modern-title">Account Ledger</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="ledger-flash-container">
+          {% for category, message in messages %}
+            <div class="ledger-flash ledger-flash-{{ category }}">
+              <span class="ledger-flash-icon">{% if category == 'success' %}✓{% elif category == 'error' %}!{% else %}i{% endif %}</span>
+              <span class="ledger-flash-message">{{ message }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+  </div>
+
+  <div class="ledger-content">
+    <div class="ledger-account-selector">
+      <form method="GET" action="{{ url_for('ledger') }}" class="ledger-select-form">
+        <label for="account-select" class="ledger-select-label">Select Account</label>
+        <div class="ledger-select-wrapper">
+          <select name="account_id" id="account-select" onchange="this.form.submit()" class="ledger-select">
+            <option value="">-- Select an Account --</option>
+            {% for account in accounts %}
+              <option value="{{ account.id }}" {% if selected_account and selected_account.id == account.id %}selected{% endif %}>
+                {{ account.name }} ({{ account.type }})
+              </option>
+            {% endfor %}
+          </select>
+          <div class="ledger-select-arrow"></div>
+        </div>
+      </form>
+    </div>
+
+    <div class="ledger-main-content">
+      {% if selected_account %}
+        <div class="ledger-account-info">
+          <div class="ledger-account-details">
+            <h3 class="ledger-account-name">{{ selected_account.name }}</h3>
+            <div class="ledger-account-meta">
+              <span class="ledger-account-type">{{ selected_account.type }}</span>
+              <span class="ledger-account-balance-label">Current Balance:</span>
+              <span class="ledger-account-balance ledger-balance-{{ 'positive' if selected_account.balance >= 0 else 'negative' }}">
+                ₹{{ "%.2f"|format(selected_account.balance) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="ledger-entries">
+          {% if ledger_entries %}
+            <div class="ledger-table-wrapper">
+              <table class="ledger-entries-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>GST (%)</th>
+                    <th>GST Amount</th>
+                    <th>Running Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for entry in ledger_entries %}
+                  <tr>
+                    <td class="ledger-date">{{ entry.date }}</td>
+                    <td class="ledger-type">
+                      <span class="badge badge-{{ entry.transaction_type|lower }}">{{ entry.transaction_type }}</span>
+                    </td>
+                    <td class="ledger-description">{{ entry.description }}</td>
+                    <td class="ledger-amount ledger-{{ 'income' if entry.amount > 0 else 'expense' }}">
+                      ₹{{ "%.2f"|format(entry.amount) }}
+                    </td>
+                    <td>{{ entry.gst_rate or '0.0' }}</td>
+                    <td>₹{{ "%.2f"|format(entry.gst_amount or 0.0) }}</td>
+                    <td class="ledger-running-balance ledger-balance-{{ 'positive' if entry.running_balance >= 0 else 'negative' }}">
+                      ₹{{ "%.2f"|format(entry.running_balance) }}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="ledger-empty-state">
+              <div class="ledger-empty-icon">📊</div>
+              <p class="ledger-empty-message">No transactions found for this account.</p>
+              <a href="{{ url_for('transactions') }}" class="ledger-cta-button">Add a transaction</a>
+            </div>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="ledger-placeholder">
+          <div class="ledger-empty-icon">📋</div>
+          <p class="ledger-empty-message">Please select an account to view its ledger.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

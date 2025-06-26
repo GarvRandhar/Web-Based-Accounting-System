@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="report-container">
+  <div class="report-header">
+    <h2>Cash Flow Statement</h2>
+    <form method="POST" class="date-range-form">
+      <label for="start_date">Start Date:</label>
+      <input type="date" name="start_date" value="{{ start_date }}">
+      <label for="end_date">End Date:</label>
+      <input type="date" name="end_date" value="{{ end_date }}">
+      <button type="submit" class="btn btn-primary">Filter</button>
+    </form>
+  </div>
+
+  <div class="cashflow-section">
+    <h3>Operating Activities</h3>
+    <p>Net Cash from Operating Activities: <strong class="{{ 'text-success' if operating_cash >= 0 else 'text-danger' }}">₹{{ "%.2f"|format(operating_cash) }}</strong></p>
+  </div>
+
+  <div class="cashflow-section">
+    <h3>Investing Activities</h3>
+    <p>Net Cash from Investing Activities: <strong class="{{ 'text-success' if investing_cash >= 0 else 'text-danger' }}">₹{{ "%.2f"|format(investing_cash) }}</strong></p>
+  </div>
+
+  <div class="cashflow-section">
+    <h3>Financing Activities</h3>
+    <p>Net Cash from Financing Activities: <strong class="{{ 'text-success' if financing_cash >= 0 else 'text-danger' }}">₹{{ "%.2f"|format(financing_cash) }}</strong></p>
+  </div>
+
+  <div class="cashflow-summary">
+    <h3>Total Net Cash Flow</h3>
+    <p><strong class="{{ 'text-success' if net_cash_flow >= 0 else 'text-danger' }}">₹{{ "%.2f"|format(net_cash_flow) }}</strong></p>
+  </div>
+</div>
+{% endblock %}
