@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Accounting System</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+  <div class="page-wrapper">
+    <header class="main-header">
+      <div class="header-container">
+        <div class="brand-container">
+          <a href="{{ url_for('dashboard') if session.get('username') else '#' }}" class="brand-link">
+            <i class="fas fa-calculator brand-icon"></i>
+            <span class="brand-name">Accounting System</span>
+          </a>
+        </div>
+
+        {% if session.get('username') and request.endpoint not in ['login', 'register'] %}
+          <button class="mobile-menu-btn" aria-label="Toggle menu">
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+          </button>
+
+          <nav class="main-navigation">
+            <ul class="nav-list">
+              <li class="nav-item">
+                <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                  <i class="fas fa-tachometer-alt"></i>
+                  <span>Dashboard</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="{{ url_for('accounts') }}" class="nav-link {% if request.endpoint == 'accounts' %}active{% endif %}">
+                  <i class="fas fa-university"></i>
+                  <span>Accounts</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="{{ url_for('transactions') }}" class="nav-link {% if request.endpoint == 'transactions' %}active{% endif %}">
+                  <i class="fas fa-exchange-alt"></i>
+                  <span>Transactions</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="{{ url_for('import_transactions') }}" class="nav-link {% if request.endpoint == 'import_transactions' %}active{% endif %}">
+                  <i class="fas fa-file-import"></i>
+                  <span>Import</span>
+                </a>
+              </li>
+              <li class="nav-item dropdown">
+                <button class="nav-link dropdown-toggle {% if request.endpoint in ['reports', 'ledger', 'income_statement', 'balance_sheet', 'cashflow_statement'] %}active{% endif %}">
+                  <i class="fas fa-chart-bar"></i>
+                  <span>Services</span>
+                  <i class="fas fa-chevron-down dropdown-icon"></i>
+                </button>
+                <div class="dropdown-menu">
+                  <a href="{{ url_for('reports') }}" class="dropdown-item {% if request.endpoint == 'reports' %}active{% endif %}">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Report</span>
+                  </a>
+                  <a href="{{ url_for('ledger') }}" class="dropdown-item {% if request.endpoint == 'ledger' %}active{% endif %}">
+                    <i class="fas fa-book"></i>
+                    <span>Ledger</span>
+                  </a>
+                  <a href="{{ url_for('income_statement') }}" class="dropdown-item {% if request.endpoint == 'income_statement' %}active{% endif %}">
+                    <i class="fas fa-coins"></i>
+                    <span>Income Statement</span>
+                  </a>
+                  <a href="{{ url_for('balance_sheet') }}" class="dropdown-item {% if request.endpoint == 'balance_sheet' %}active{% endif %}">
+                    <i class="fas fa-balance-scale"></i>
+                    <span>Balance Sheet</span>
+                  </a>
+                  <a href="{{ url_for('cashflow_statement') }}" class="dropdown-item {% if request.endpoint == 'cashflow_statement' %}active{% endif %}">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <span>Cash Flow</span>
+                  </a>
+                </div>
+              </li>
+            </ul>
+
+            <div class="user-menu">
+              <a href="{{ url_for('profile') }}" class="user-info {% if request.endpoint == 'profile' %}active{% endif %}">
+                <i class="fas fa-user-circle"></i>
+                <span>{{ session.get('username') }}</span>
+              </a>
+              <a href="{{ url_for('logout') }}" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+              </a>
+            </div>
+          </nav>
+        {% endif %}
+      </div>
+    </header>
+
+    <!-- Toast Container -->
+    <div id="toast-container" style="position: fixed; top: 1rem; right: 1rem; z-index: 9999;"></div>
+
+    <main class="main-content container">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="main-footer">
+      <div class="footer-container">
+        <div class="footer-content">
+          <div class="footer-brand">
+            <i class="fas fa-calculator footer-icon"></i>
+            <h3>Accounting System</h3>
+            <p>Simplifying financial management</p>
+          </div>
+
+          <div class="footer-links">
+            <div class="footer-column">
+              <h4>Quick Links</h4>
+              <ul>
+                <li><a href="{{ url_for('dashboard') if session.get('username') else '#' }}">Dashboard</a></li>
+                <li><a href="{{ url_for('accounts') if session.get('username') else '#' }}">Accounts</a></li>
+                <li><a href="{{ url_for('transactions') if session.get('username') else '#' }}">Transactions</a></li>
+              </ul>
+            </div>
+
+            <div class="footer-column">
+              <h4>Reports</h4>
+              <ul>
+                <li><a href="{{ url_for('ledger') if session.get('username') else '#' }}">Ledger</a></li>
+                <li><a href="{{ url_for('balance_sheet') if session.get('username') else '#' }}">Balance Sheet</a></li>
+                <li><a href="{{ url_for('income_statement') if session.get('username') else '#' }}">Income Statement</a></li>
+              </ul>
+            </div>
+
+            <div class="footer-column">
+              <h4>Resources</h4>
+              <ul>
+                <li><a href="#">Help Center</a></li>
+                <li><a href="#">Documentation</a></li>
+                <li><a href="#">Support</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer-bottom">
+          <p>&copy; {{ now.year }} Accounting System | All rights reserved.</p>
+          <div class="footer-social">
+            <a href="#" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+            <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+            <a href="#" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Toasts
+      const flashMessages = {{ get_flashed_messages(with_categories=true)|tojson }};
+      const toastContainer = document.getElementById('toast-container');
+
+      flashMessages.forEach(([category, message]) => {
+        const toast = document.createElement('div');
+        toast.className = `toast-message toast-${category}`;
+        toast.innerHTML = `
+          <div class="toast-content">${message}</div>
+          <button class="toast-close" aria-label="Close">&times;</button>
+        `;
+        toast.querySelector('.toast-close').addEventListener('click', () => {
+          toast.classList.add('toast-hide');
+          setTimeout(() => toast.remove(), 400);
+        });
+        toastContainer.appendChild(toast);
+        setTimeout(() => {
+          if (toast) {
+            toast.classList.add('toast-hide');
+            setTimeout(() => toast.remove(), 400);
+          }
+        }, 3000);
+      });
+
+      // Mobile Menu Toggle
+      const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
+      const mainNavigation = document.querySelector('.main-navigation');
+      if (mobileMenuBtn && mainNavigation) {
+        mobileMenuBtn.addEventListener('click', function() {
+          this.classList.toggle('active');
+          mainNavigation.classList.toggle('active');
+          document.body.classList.toggle('menu-open');
+        });
+      }
+
+      // Dropdown Toggle (Services dropdown)
+      const dropdownToggles = document.querySelectorAll('.dropdown-toggle');
+      dropdownToggles.forEach(toggle => {
+        toggle.addEventListener('click', function(e) {
+          e.preventDefault();
+          const parent = this.closest('.dropdown');
+          if (parent) {
+            parent.classList.toggle('active');
+          }
+          document.querySelectorAll('.dropdown').forEach(dropdown => {
+            if (dropdown !== parent) {
+              dropdown.classList.remove('active');
+            }
+          });
+        });
+      });
+
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('.dropdown')) {
+          document.querySelectorAll('.dropdown').forEach(dropdown => {
+            dropdown.classList.remove('active');
+          });
+        }
+      });
+
+      // Set today's date
+      const dateInputs = document.querySelectorAll('input[type="date"]');
+      const today = new Date().toISOString().split('T')[0];
+      dateInputs.forEach(input => {
+        if (!input.value) {
+          input.value = today;
+        }
+      });
+    });
+  </script>
+</body>
+</html>
