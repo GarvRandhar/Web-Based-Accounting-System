@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Multi-Currency{% endblock %}
+{% block page_title %}Currencies & Exchange Rates{% endblock %}
+
+{% block content %}
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+    <!-- Add Currency -->
+    <div class="card">
+        <div class="section-header"><h3>Add Currency</h3></div>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="add_currency">
+            <div style="display:flex; gap:.5rem; margin-bottom:.5rem;">
+                <div class="form-group" style="flex:1;">
+                    <label>Code (ISO) *</label>
+                    <input type="text" name="code" class="form-control" required maxlength="3" placeholder="USD">
+                </div>
+                <div class="form-group" style="flex:2;">
+                    <label>Name *</label>
+                    <input type="text" name="name" class="form-control" required placeholder="US Dollar">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label>Symbol</label>
+                    <input type="text" name="symbol" class="form-control" maxlength="5" placeholder="$">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Add Currency</button>
+        </form>
+        <form method="POST" action="{{ url_for('currency.seed') }}" style="margin-top:.5rem;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-secondary btn-sm">Seed Default Currencies</button>
+        </form>
+    </div>
+
+    <!-- Add Exchange Rate -->
+    <div class="card">
+        <div class="section-header"><h3>Add Exchange Rate</h3></div>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="add_rate">
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:.5rem; margin-bottom:.5rem;">
+                <div class="form-group">
+                    <label>From *</label>
+                    <select name="from_currency" class="form-control" required>
+                        {% for c in currencies %}
+                        <option value="{{ c.code }}">{{ c.code }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>To *</label>
+                    <select name="to_currency" class="form-control" required>
+                        {% for c in currencies %}
+                        <option value="{{ c.code }}">{{ c.code }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Rate *</label>
+                    <input type="number" name="rate" class="form-control" step="0.00000001" required placeholder="83.12">
+                </div>
+                <div class="form-group">
+                    <label>Effective Date</label>
+                    <input type="date" name="effective_date" class="form-control">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Add Rate</button>
+        </form>
+    </div>
+</div>
+
+<!-- Currencies List -->
+<div class="card" style="margin-bottom:1rem;">
+    <div class="section-header"><h3>Active Currencies</h3></div>
+    <div style="display:flex; flex-wrap:wrap; gap:.5rem;">
+        {% for c in currencies %}
+        <div style="background:var(--card-bg); border:1px solid var(--border-color); padding:.5rem .75rem; border-radius:6px;">
+            <strong>{{ c.symbol }} {{ c.code }}</strong> <span class="text-secondary">{{ c.name }}</span>
+        </div>
+        {% else %}
+        <span class="text-secondary">No currencies. Click "Seed Default Currencies" above.</span>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Recent Exchange Rates -->
+<div class="card">
+    <div class="section-header"><h3>Exchange Rate History</h3></div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>From</th>
+                <th>To</th>
+                <th class="text-right">Rate</th>
+                <th>Effective Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in rates %}
+            <tr>
+                <td>{{ r.from_currency }}</td>
+                <td>{{ r.to_currency }}</td>
+                <td class="text-right">{{ r.rate }}</td>
+                <td>{{ r.effective_date.strftime('%Y-%m-%d') }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-secondary">No exchange rates recorded.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

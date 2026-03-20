@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}New Asset{% endblock %}
+{% block page_title %}Create Fixed Asset{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:800px;">
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:.75rem;">
+            <div class="form-group">
+                <label>Asset Code *</label>
+                <input type="text" name="asset_code" class="form-control" required placeholder="FA-001">
+            </div>
+            <div class="form-group">
+                <label>Asset Name *</label>
+                <input type="text" name="name" class="form-control" required placeholder="e.g. Office Laptop">
+            </div>
+            <div class="form-group">
+                <label>Purchase Date *</label>
+                <input type="date" name="purchase_date" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Purchase Price *</label>
+                <input type="number" name="purchase_price" class="form-control" step="0.01" required>
+            </div>
+            <div class="form-group">
+                <label>Salvage Value</label>
+                <input type="number" name="salvage_value" class="form-control" step="0.01" value="0">
+            </div>
+            <div class="form-group">
+                <label>Useful Life (Years) *</label>
+                <input type="number" name="useful_life_years" class="form-control" required min="1" value="5">
+            </div>
+            <div class="form-group">
+                <label>Depreciation Method</label>
+                <select name="depreciation_method" class="form-control">
+                    <option value="SLM">Straight Line (SLM)</option>
+                    <option value="WDV">Written Down Value (WDV)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <input type="text" name="description" class="form-control" placeholder="Optional">
+            </div>
+            <div class="form-group">
+                <label>Asset GL Account</label>
+                <select name="asset_account_id" class="form-control">
+                    <option value="">— Select —</option>
+                    {% for a in asset_accounts %}
+                    <option value="{{ a.id }}">{{ a.code }} — {{ a.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Depreciation Expense Account</label>
+                <select name="depreciation_account_id" class="form-control">
+                    <option value="">— Select —</option>
+                    {% for a in expense_accounts %}
+                    <option value="{{ a.id }}">{{ a.code }} — {{ a.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="grid-column: span 2;">
+                <label>Accumulated Depreciation Account</label>
+                <select name="accumulated_dep_account_id" class="form-control">
+                    <option value="">— Select —</option>
+                    {% for a in liability_accounts %}
+                    <option value="{{ a.id }}">{{ a.code }} — {{ a.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div style="margin-top:1rem;">
+            <button type="submit" class="btn btn-primary">Create Asset & Generate Schedule</button>
+            <a href="{{ url_for('assets.index') }}" class="btn btn-secondary" style="margin-left:.5rem;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

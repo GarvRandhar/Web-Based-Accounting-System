@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Salary Structures — Payroll{% endblock %}
+{% block page_title %}Salary Structures{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:1rem;">
+    <div class="section-header"><h3>Create Salary Structure</h3></div>
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:.75rem; margin-bottom:.75rem;">
+            <div class="form-group">
+                <label>Structure Name *</label>
+                <input type="text" name="name" class="form-control" required placeholder="e.g. Standard Package">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <input type="text" name="description" class="form-control" placeholder="Optional">
+            </div>
+        </div>
+        <h4 style="margin-bottom:.5rem;">Component Details</h4>
+        <table class="table" id="structureTable">
+            <thead>
+                <tr>
+                    <th>Component</th>
+                    <th>Fixed Amount</th>
+                    <th>OR % of Base</th>
+                    <th>Base Component</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <select name="component_id[]" class="form-control" required>
+                            <option value="">— Select —</option>
+                            {% for c in components %}
+                            <option value="{{ c.id }}">{{ c.name }} ({{ c.component_type }})</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><input type="number" name="amount[]" class="form-control" step="0.01" value="0" placeholder="Fixed"></td>
+                    <td><input type="number" name="percentage[]" class="form-control" step="0.01" value="0" placeholder="%"></td>
+                    <td>
+                        <select name="base_component_id[]" class="form-control">
+                            <option value="">— N/A —</option>
+                            {% for c in components %}
+                            <option value="{{ c.id }}">{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="addStructureRow()" style="margin-bottom:1rem;">+ Add Component</button>
+        <br>
+        <button type="submit" class="btn btn-primary">Create Structure</button>
+    </form>
+</div>
+
+<div class="card">
+    <div class="section-header"><h3>All Salary Structures</h3></div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Components</th>
+                <th>Employees</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ss in structures %}
+            <tr>
+                <td><strong>{{ ss.name }}</strong></td>
+                <td class="text-secondary">{{ ss.description or '—' }}</td>
+                <td>
+                    {% for d in ss.details %}
+                    <span class="badge badge-posted">{{ d.component.name }}</span>
+                    {% endfor %}
+                </td>
+                <td>{{ ss.employees|length }}</td>
+                <td><span class="badge {{ 'badge-paid' if ss.is_active else 'badge-draft' }}">{{ 'Active' if ss.is_active else 'Inactive' }}</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-secondary">No salary structures.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function addStructureRow() {
+    const tbody = document.querySelector('#structureTable tbody');
+    const row = tbody.rows[0].cloneNode(true);
+    row.querySelectorAll('input').forEach(i => i.value = i.type==='number' ? '0' : '');
+    row.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+    const td = document.createElement('td');
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'btn btn-danger btn-sm'; btn.textContent = '✕';
+    btn.onclick = () => row.remove();
+    td.appendChild(btn);
+    row.lastElementChild.replaceWith(td);
+    tbody.appendChild(row);
+}
+</script>
+{% endblock %}

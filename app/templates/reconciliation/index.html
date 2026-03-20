@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Bank Reconciliation{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 2rem;">
+    <h2>Upload Bank Statement</h2>
+    <form action="{{ url_for('reconciliation.upload') }}" method="POST" enctype="multipart/form-data"
+        style="display: flex; gap: 1rem; align-items: flex-end;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+        <div class="form-group" style="flex: 1;">
+            <label>Select Account</label>
+            <select name="account_id" class="form-control" required>
+                {% for acc in accounts %}
+                <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.code }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group" style="flex: 2;">
+            <label>Upload CSV (Date, Description, Amount)</label>
+            <input type="file" name="file" class="form-control" accept=".csv" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="margin-bottom: 2px;">Upload</button>
+    </form>
+    <p class="text-secondary" style="margin-top: 0.5rem; font-size: 0.875rem;">
+        CSV Format: <code>Date (YYYY-MM-DD), Description, Amount</code>
+    </p>
+</div>
+
+<div class="card">
+    <h2>Recent Statements</h2>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Period</th>
+                <th>Account</th>
+                <th>Transactions</th>
+                <th>Balance</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for stmt in statements %}
+            <tr>
+                <td>{{ stmt.start_date }} to {{ stmt.end_date }}</td>
+                <td>{{ stmt.account_id }}</td> <!-- Should verify relation -->
+                <td>{{ stmt.transactions|length }}</td>
+                <td>${{ "%.2f"|format(stmt.ending_balance) }}</td>
+                <td>
+                    <a href="{{ url_for('reconciliation.view', id=stmt.id) }}"
+                        class="btn btn-primary btn-sm">Reconcile</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="text-center">No statements uploaded.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

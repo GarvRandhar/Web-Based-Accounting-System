@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}{{ asset.name }} — Asset Detail{% endblock %}
+{% block page_title %}{{ asset.name }}{% endblock %}
+
+{% block content %}
+<!-- Asset Summary -->
+<div class="metrics-grid" style="margin-bottom:1rem;">
+    <div class="metric-card">
+        <div class="metric-label">Purchase Price</div>
+        <div class="metric-value">{{ "%.2f"|format(asset.purchase_price) }}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Salvage Value</div>
+        <div class="metric-value">{{ "%.2f"|format(asset.salvage_value) }}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Total Depreciated</div>
+        <div class="metric-value text-danger">{{ "%.2f"|format(asset.total_depreciated) }}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Book Value</div>
+        <div class="metric-value" style="color:var(--success-color);">{{ "%.2f"|format(asset.book_value) }}</div>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns:2fr 1fr; gap:1rem; margin-bottom:1rem;">
+    <!-- Asset Info -->
+    <div class="card">
+        <div class="section-header"><h3>Asset Information</h3></div>
+        <table class="table">
+            <tr><td class="text-secondary">Asset Code</td><td>{{ asset.asset_code }}</td></tr>
+            <tr><td class="text-secondary">Purchase Date</td><td>{{ asset.purchase_date.strftime('%Y-%m-%d') }}</td></tr>
+            <tr><td class="text-secondary">Useful Life</td><td>{{ asset.useful_life_years }} years</td></tr>
+            <tr><td class="text-secondary">Method</td><td>{{ 'Straight Line' if asset.depreciation_method == 'SLM' else 'Written Down Value' }}</td></tr>
+            <tr><td class="text-secondary">Status</td><td><span class="badge {{ 'badge-paid' if asset.status == 'Active' else 'badge-draft' }}">{{ asset.status }}</span></td></tr>
+            {% if asset.description %}
+            <tr><td class="text-secondary">Description</td><td>{{ asset.description }}</td></tr>
+            {% endif %}
+        </table>
+    </div>
+
+    <!-- Actions -->
+    <div class="card">
+        <div class="section-header"><h3>Actions</h3></div>
+        {% if asset.status == 'Active' %}
+        <form method="POST" action="{{ url_for('assets.post_all_depreciation', id=asset.id) }}" style="margin-bottom:.75rem;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary" style="width:100%;" onclick="return confirm('Post all pending depreciation entries up to today?')">
+                Post All Due Depreciation
+            </button>
+        </form>
+        <hr style="border-color:var(--border-color); margin:.75rem 0;">
+        <h4 style="margin-bottom:.5rem;">Dispose / Sell</h4>
+        <form method="POST" action="{{ url_for('assets.dispose', id=asset.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group" style="margin-bottom:.5rem;">
+                <label>Disposal Date</label>
+                <input type="date" name="disposed_date" class="form-control">
+            </div>
+            <div class="form-group" style="margin-bottom:.5rem;">
+                <label>Sale Amount (0 if scrapped)</label>
+                <input type="number" name="disposed_amount" class="form-control" step="0.01" value="0">
+            </div>
+            <button type="submit" class="btn btn-danger" style="width:100%;" onclick="return confirm('Dispose this asset?')">Dispose Asset</button>
+        </form>
+        {% else %}
+        <p class="text-secondary">This asset has been {{ asset.status|lower }}.</p>
+        {% if asset.disposed_date %}
+        <p><strong>Disposed on:</strong> {{ asset.disposed_date.strftime('%Y-%m-%d') }}</p>
+        <p><strong>Amount received:</strong> {{ "%.2f"|format(asset.disposed_amount) }}</p>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<!-- Depreciation Schedule -->
+<div class="card">
+    <div class="section-header"><h3>Depreciation Schedule</h3></div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Date</th>
+                <th class="text-right">Depreciation</th>
+                <th class="text-right">Accumulated</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in asset.schedules[:60] %}
+            <tr>
+                <td class="text-secondary">{{ loop.index }}</td>
+                <td>{{ s.schedule_date.strftime('%Y-%m-%d') }}</td>
+                <td class="text-right">{{ "%.2f"|format(s.depreciation_amount) }}</td>
+                <td class="text-right">{{ "%.2f"|format(s.accumulated_depreciation) }}</td>
+                <td>
+                    {% if s.is_posted %}
+                    <span class="badge badge-paid">Posted</span>
+                    {% else %}
+                    <span class="badge badge-draft">Pending</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if not s.is_posted and asset.status == 'Active' %}
+                    <form method="POST" action="{{ url_for('assets.post_depreciation', id=asset.id) }}" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="schedule_id" value="{{ s.id }}">
+                        <button type="submit" class="btn btn-primary btn-sm">Post</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-secondary">No depreciation schedule.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if asset.schedules|length > 60 %}
+    <p class="text-secondary text-sm" style="margin-top:.5rem;">Showing first 60 of {{ asset.schedules|length }} entries.</p>
+    {% endif %}
+</div>
+{% endblock %}

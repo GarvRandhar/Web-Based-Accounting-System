@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Warehouses — Inventory{% endblock %}
+{% block page_title %}Warehouses{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:1rem;">
+    <div class="section-header"><h3>Add Warehouse</h3></div>
+    <form method="POST" style="display:flex; gap:.75rem; align-items:end;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group" style="flex:1;">
+            <label>Warehouse Name *</label>
+            <input type="text" name="name" class="form-control" required placeholder="e.g. Main Warehouse">
+        </div>
+        <div class="form-group" style="flex:1;">
+            <label>Location</label>
+            <input type="text" name="location" class="form-control" placeholder="e.g. Building A, Floor 2">
+        </div>
+        <button type="submit" class="btn btn-primary">Create</button>
+    </form>
+</div>
+
+<div class="card">
+    <div class="section-header">
+        <h3>All Warehouses</h3>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Location</th>
+                <th>Status</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for wh in warehouses %}
+            <tr>
+                <td>{{ wh.name }}</td>
+                <td class="text-secondary">{{ wh.location or '—' }}</td>
+                <td><span class="badge {{ 'badge-paid' if wh.is_active else 'badge-draft' }}">{{ 'Active' if wh.is_active else 'Inactive' }}</span></td>
+                <td class="text-secondary">{{ wh.created_at.strftime('%Y-%m-%d') }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-secondary">No warehouses yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

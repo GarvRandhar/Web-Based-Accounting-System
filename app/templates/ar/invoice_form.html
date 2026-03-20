@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}New Invoice{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="margin-bottom: 2rem;">
+        <h2>Create New Invoice</h2>
+        <p class="text-secondary">Draft a new invoice for a customer</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('ar.new_invoice') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+            <div class="form-group">
+                <label class="form-label">Customer *</label>
+                <select name="customer_id" class="form-control" required>
+                    <option value="">Select Customer</option>
+                    {% for customer in customers %}
+                    <option value="{{ customer.id }}">{{ customer.name }} ({{ customer.currency }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Due Date *</label>
+                <input type="date" name="due_date" class="form-control" required>
+            </div>
+        </div>
+
+        <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: var(--text-secondary);">Invoice Items</h3>
+
+        <table class="table" id="itemsTable">
+            <thead>
+                <tr>
+                    <th style="width: 30%;">Description</th>
+                    <th style="width: 20%;">Account (Revenue)</th>
+                    <th style="width: 15%;">Tax</th>
+                    <th style="width: 10%;">Qty</th>
+                    <th style="width: 15%;">Price</th>
+                    <th style="width: 10%;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="itemsBody">
+                <tr>
+                    <td><input type="text" name="description[]" class="form-control" required
+                            placeholder="Item description"></td>
+                    <td>
+                        <select name="account_id[]" class="form-control" required>
+                            {% for account in revenue_accounts %}
+                            <option value="{{ account.id }}">{{ account.code }} - {{ account.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <select name="tax_id[]" class="form-control">
+                            <option value="">No Tax</option>
+                            {% for tax in taxes %}
+                            <option value="{{ tax.id }}">{{ tax.name }} ({{ "%.1f"|format(tax.rate) }}%)</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><input type="number" step="0.01" name="quantity[]" class="form-control" required value="1"></td>
+                    <td><input type="number" step="0.01" name="price[]" class="form-control" required value="0.00"></td>
+                    <td><button type="button" class="btn btn-secondary" onclick="removeRow(this)"
+                            style="color: #ef4444;">&times;</button></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <button type="button" class="btn btn-secondary" onclick="addRow()" style="margin-top: 1rem;">+ Add Item</button>
+
+        <div style="margin-top: 3rem; display: flex; justify-content: flex-end; gap: 1rem;">
+            <a href="{{ url_for('ar.invoices') }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Create Draft Invoice</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    function addRow() {
+        const tbody = document.getElementById('itemsBody');
+        const row = tbody.firstElementChild.cloneNode(true);
+        row.querySelectorAll('input').forEach(input => {
+            if (input.name === 'quantity[]') input.value = 1;
+            else if (input.name === 'price[]') input.value = '0.00';
+            else input.value = '';
+        });
+        row.querySelectorAll('select').forEach(select => {
+            if (select.name === 'tax_id[]') select.value = '';
+        });
+        tbody.appendChild(row);
+    }
+
+    function removeRow(btn) {
+        const tbody = document.getElementById('itemsBody');
+        if (tbody.children.length > 1) {
+            btn.closest('tr').remove();
+        }
+    }
+</script>
+{% endblock %}

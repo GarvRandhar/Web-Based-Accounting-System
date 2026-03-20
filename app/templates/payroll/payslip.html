@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Payslip — {{ item.employee.name }}{% endblock %}
+{% block page_title %}Payslip{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:600px;">
+    <div class="section-header">
+        <h3>{{ item.employee.name }} ({{ item.employee.employee_code }})</h3>
+        <span class="badge badge-posted">{{ item.payroll_entry.period }}</span>
+    </div>
+
+    <table class="table" style="margin-bottom:1rem;">
+        <thead>
+            <tr><th>Component</th><th>Type</th><th class="text-right">Amount</th></tr>
+        </thead>
+        <tbody>
+            {% for c in components %}
+            <tr>
+                <td>{{ c.component_name }}</td>
+                <td><span class="badge {{ 'badge-paid' if c.component_type == 'Earning' else 'badge-overdue' }}">{{ c.component_type }}</span></td>
+                <td class="text-right">{{ "%.2f"|format(c.amount) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; text-align:center;">
+        <div>
+            <div class="text-secondary text-sm">Gross Pay</div>
+            <div style="font-size:1.25rem; font-weight:600;">{{ "%.2f"|format(item.gross_pay) }}</div>
+        </div>
+        <div>
+            <div class="text-secondary text-sm">Deductions</div>
+            <div style="font-size:1.25rem; font-weight:600; color:var(--danger-color);">{{ "%.2f"|format(item.total_deductions) }}</div>
+        </div>
+        <div>
+            <div class="text-secondary text-sm">Net Pay</div>
+            <div style="font-size:1.25rem; font-weight:700; color:var(--success-color);">{{ "%.2f"|format(item.net_pay) }}</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

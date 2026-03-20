@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}Bill #{{ bill.id }}{% endblock %}
+
+{% block content %}
+
+<!-- Warning if not posted -->
+{% if not bill.journal_entry_id and bill.status != 'Cancelled' %}
+<div class="alert alert-warning"
+    style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+    <span>This bill is currently <strong>OPEN</strong>. It has not been posted to the General Ledger.</span>
+    <div style="display: flex; gap: 0.5rem;">
+        <form method="POST" action="{{ url_for('ap.post_bill', id=bill.id) }}" style="margin: 0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <button type="submit" class="btn btn-primary" style="background-color: #d97706; border-color: #d97706;">Post
+                to Ledger</button>
+        </form>
+        <form method="POST" action="{{ url_for('ap.cancel_bill', id=bill.id) }}" style="margin: 0;"
+            onsubmit="return confirm('Cancel this open bill?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <button type="submit" class="btn"
+                style="background: #fee2e2; color: #991b1b; border: none; cursor: pointer;">Cancel Bill</button>
+        </form>
+    </div>
+</div>
+{% elif bill.status == 'Paid' %}
+<div class="alert"
+    style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; background: #dcfce7; border-left: 4px solid #166534; padding: 1rem;">
+    <span>This bill has been <strong>posted</strong> to the General Ledger.</span>
+    <form method="POST" action="{{ url_for('ap.cancel_bill', id=bill.id) }}" style="margin: 0;"
+        onsubmit="return confirm('Void this posted bill? A reversing journal entry will be created.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <button type="submit" class="btn"
+            style="background: #fee2e2; color: #991b1b; border: none; cursor: pointer;">Void Bill</button>
+    </form>
+</div>
+{% elif bill.status == 'Cancelled' %}
+<div class="alert" style="margin-bottom: 2rem; background: #fee2e2; border-left: 4px solid #991b1b; padding: 1rem;">
+    <strong>CANCELLED</strong> — This bill has been voided.
+</div>
+{% endif %}
+
+<div class="card">
+    <!-- Header -->
+    <div
+        style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3rem; border-bottom: 2px solid #f1f5f9; padding-bottom: 2rem;">
+        <div>
+            <h1 style="font-size: 2rem; margin-bottom: 0.5rem; color: var(--primary-color);">BILL</h1>
+            <p style="font-size: 1.1rem; color: var(--text-secondary);">#{{ bill.id }}</p>
+        </div>
+        <div style="text-align: right;">
+            <h3 style="margin-bottom: 0.5rem;">{{ company_settings.company_name }}</h3>
+            <p style="color: var(--text-secondary); white-space: pre-line;">{{ company_settings.address }}</p>
+        </div>
+    </div>
+
+    <!-- Info Grid -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; margin-bottom: 3rem;">
+        <div>
+            <h4
+                style="margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.875rem; text-transform: uppercase;">
+                From Vendor</h4>
+            <h3 style="margin-bottom: 0.5rem;">{{ bill.vendor.name }}</h3>
+            <p style="color: var(--text-secondary); white-space: pre-line;">{{ bill.vendor.address }}</p>
+            <p style="margin-top: 0.5rem;">{{ bill.vendor.email }}</p>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+            <div>
+                <h4
+                    style="margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.875rem; text-transform: uppercase;">
+                    Bill Date</h4>
+                <p style="font-weight: 500;">{{ bill.date.strftime('%b %d, %Y') }}</p>
+            </div>
+            <div>
+                <h4
+                    style="margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.875rem; text-transform: uppercase;">
+                    Due Date</h4>
+                <p style="font-weight: 500;">{{ bill.due_date.strftime('%b %d, %Y') }}</p>
+            </div>
+            <div>
+                <h4
+                    style="margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.875rem; text-transform: uppercase;">
+                    Status</h4>
+                <span style="padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.875rem;
+                    {% if bill.status == 'Open' %}background: #f1f5f9; color: #64748b;
+                    {% elif bill.status == 'Paid' %}background: #dcfce7; color: #166534;
+                    {% elif bill.status == 'Cancelled' %}background: #fee2e2; color: #991b1b;
+                    {% else %}background: #fee2e2; color: #991b1b;{% endif %}">
+                    {{ bill.status }}
+                </span>
+            </div>
+            <div>
+                <h4
+                    style="margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.875rem; text-transform: uppercase;">
+                    Currency</h4>
+                <p style="font-weight: 500;">{{ bill.currency or 'USD' }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Items Table -->
+    <table class="table" style="margin-bottom: 2rem;">
+        <thead style="background: #f8fafc;">
+            <tr>
+                <th style="padding: 1rem;">Description</th>
+                <th style="padding: 1rem; text-align: center;">Qty</th>
+                <th style="padding: 1rem; text-align: right;">Unit Price</th>
+                <th style="padding: 1rem; text-align: right;">Amount</th>
+                {% if bill.tax_amount and bill.tax_amount > 0 %}
+                <th style="padding: 1rem; text-align: right;">Tax</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in bill.items %}
+            <tr>
+                <td style="padding: 1rem;">
+                    {{ item.description }}
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">GL: {{ item.account.code }} - {{
+                        item.account.name }}</div>
+                </td>
+                <td style="padding: 1rem; text-align: center;">{{ "%.2f"|format(item.quantity) }}</td>
+                <td style="padding: 1rem; text-align: right;">{{ company_settings.currency_symbol }}{{
+                    "%.2f"|format(item.unit_price) }}</td>
+                <td style="padding: 1rem; text-align: right;">{{ company_settings.currency_symbol }}{{
+                    "%.2f"|format(item.amount) }}</td>
+                {% if bill.tax_amount and bill.tax_amount > 0 %}
+                <td style="padding: 1rem; text-align: right;">
+                    {% if item.tax %}{{ item.tax.name }} ({{ "%.1f"|format(item.tax.rate) }}%){% endif %}
+                    {{ company_settings.currency_symbol }}{{ "%.2f"|format(item.tax_amount) }}
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            {% if bill.tax_amount and bill.tax_amount > 0 %}
+            <tr style="border-top: 1px solid #e2e8f0;">
+                <td colspan="3" style="text-align: right; padding: 0.75rem 1rem; color: var(--text-secondary);">Subtotal
+                </td>
+                <td style="text-align: right; padding: 0.75rem 1rem;">{{ company_settings.currency_symbol }}{{
+                    "%.2f"|format(bill.total_amount - bill.tax_amount) }}</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td colspan="3" style="text-align: right; padding: 0.75rem 1rem; color: var(--text-secondary);">Tax</td>
+                <td style="text-align: right; padding: 0.75rem 1rem;">{{ company_settings.currency_symbol }}{{
+                    "%.2f"|format(bill.tax_amount) }}</td>
+                <td></td>
+            </tr>
+            {% endif %}
+            <tr style="border-top: 2px solid #e2e8f0;">
+                <td colspan="3" style="text-align: right; padding: 1.5rem 1rem; font-weight: bold;">Total</td>
+                <td style="text-align: right; padding: 1.5rem 1rem; font-weight: bold; font-size: 1.1rem;">
+                    {{ company_settings.currency_symbol }}{{ "%.2f"|format(bill.total_amount) }}
+                </td>
+                {% if bill.tax_amount and bill.tax_amount > 0 %}<td></td>{% endif %}
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Attachments Section -->
+    <div style="margin-bottom: 3rem;">
+        <h3 style="font-size: 1.25rem; margin-bottom: 1rem;">Attachments</h3>
+        {% if bill.journal_entry and bill.journal_entry.attachments %}
+        <div
+            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+            {% for attachment in bill.journal_entry.attachments %}
+            <div class="card"
+                style="padding: 1rem; display: flex; flex-direction: column; align-items: center; text-align: center;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📄</div>
+                <div style="font-weight: 500; font-size: 0.9rem; margin-bottom: 0.5rem; word-break: break-all;">{{
+                    attachment.filename }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 1rem;">{{
+                    attachment.upload_date.strftime('%Y-%m-%d') }}</div>
+                <a href="{{ url_for('accounting.download_attachment', id=attachment.id) }}"
+                    class="btn btn-sm btn-secondary" target="_blank">Download</a>
+            </div>
+            {% endfor %}
+        </div>
+        {% elif bill.journal_entry %}
+        <p class="text-secondary" style="margin-bottom: 1.5rem;">No files attached to this bill.</p>
+        {% else %}
+        <p class="text-secondary" style="margin-bottom: 1.5rem;">Post this bill to add attachments.</p>
+        {% endif %}
+
+        {% if bill.journal_entry_id %}
+        <form action="{{ url_for('accounting.upload_attachment', id=bill.journal_entry_id) }}" method="POST"
+            enctype="multipart/form-data" style="max-width: 400px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <div class="form-group">
+                <label class="form-label">Upload Document</label>
+                <div style="display: flex; gap: 0.5rem;">
+                    <input type="file" name="file" class="form-control" required>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- Footer Actions -->
+    <div style="display: flex; justify-content: flex-end; gap: 1rem;">
+        <a href="{{ url_for('ap.bills') }}" class="btn btn-secondary">Back to List</a>
+        <button class="btn btn-secondary" onclick="window.print()">Print Bill</button>
+    </div>
+</div>
+{% endblock %}

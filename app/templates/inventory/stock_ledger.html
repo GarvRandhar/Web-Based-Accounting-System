@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Stock Ledger — Inventory{% endblock %}
+{% block page_title %}Stock Ledger{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:1rem;">
+    <form method="GET" style="display:flex; gap:.75rem; align-items:end;">
+        <div class="form-group" style="flex:1;">
+            <label>Product</label>
+            <select name="product_id" class="form-control">
+                <option value="">All Products</option>
+                {% for p in products %}
+                <option value="{{ p.id }}" {{ 'selected' if selected_product == p.id }}>{{ p.sku }} — {{ p.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="flex:1;">
+            <label>Warehouse</label>
+            <select name="warehouse_id" class="form-control">
+                <option value="">All Warehouses</option>
+                {% for wh in warehouses %}
+                <option value="{{ wh.id }}" {{ 'selected' if selected_warehouse == wh.id }}>{{ wh.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Filter</button>
+    </form>
+</div>
+
+<div class="card">
+    <div class="section-header">
+        <h3>Ledger Entries</h3>
+        <span class="text-secondary text-sm">{{ entries|length }} entries</span>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Product</th>
+                <th>Warehouse</th>
+                <th class="text-right">Qty Change</th>
+                <th class="text-right">Rate</th>
+                <th class="text-right">Balance Qty</th>
+                <th class="text-right">Balance Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in entries %}
+            <tr>
+                <td>{{ e.posting_date.strftime('%Y-%m-%d') }}</td>
+                <td>{{ e.product.name }}</td>
+                <td>{{ e.warehouse.name }}</td>
+                <td class="text-right" style="color: {{ 'var(--success-color)' if e.qty_change > 0 else 'var(--danger-color)' }}">
+                    {{ "+%.1f"|format(e.qty_change) if e.qty_change > 0 else "%.1f"|format(e.qty_change) }}
+                </td>
+                <td class="text-right">{{ "%.2f"|format(e.valuation_rate) }}</td>
+                <td class="text-right">{{ "%.1f"|format(e.balance_qty) }}</td>
+                <td class="text-right">{{ "%.2f"|format(e.balance_value) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-secondary">No stock ledger entries.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
