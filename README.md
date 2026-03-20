@@ -37,22 +37,17 @@ https://web-based-accounting-system.onrender.com
 
 ### Journal Entries
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/9d16c671-87db-4a24-a5ee-01408bd0536d" alt="Journal Entries" width="100%">
+  <img src="https://github.com/user-attachments/assets/c0372faa-62c1-47e9-9274-761a3d46ea73" alt="Journal Entries" width="100%">
 </p>
 
 ### Chart of Accounts
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/c0372faa-62c1-47e9-9274-761a3d46ea73" alt="Chart of Accounts" width="100%">
+  <img src="https://github.com/user-attachments/assets/13cab52a-3eef-4b9a-be8f-88a268a6801a" alt="Chart of Accounts" width="100%">
 </p>
 
-### Currencies & Exchange Rates
+### Currencies and Exchange Rates
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/13cab52a-3eef-4b9a-be8f-88a268a6801a" alt="Currencies & Exchange Rates" width="100%">
-</p>
-
-### Audit Log
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/ab07dd17-3ad3-4633-a4d0-b88bfa2420a7" alt="Audit Log" width="100%">
+  <img src="https://github.com/user-attachments/assets/ab07dd17-3ad3-4633-a4d0-b88bfa2420a7" alt="Currencies and Exxhange Rates" width="100%">
 </p>
 
 ### Settings
