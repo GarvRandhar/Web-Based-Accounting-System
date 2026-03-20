@@ -29,47 +29,36 @@ https://web-based-accounting-system.onrender.com
 - Built for a smooth accounting operations experience
 
 ## Screenshots
+
+### Dashboard
 <p align="center">
-  <img src="<img width="1582" height="1035" alt="Screenshot 2026-03-20 at 3 08 00 PM" src="https://github.com/user-attachments/assets/a20b970f-63d2-4896-a387-b958f9403116" />
-" alt="Dashboard" width="100%">
+  <img src="https://github.com/user-attachments/assets/a20b970f-63d2-4896-a387-b958f9403116" alt="Dashboard" width="100%">
 </p>
 
+### Journal Entries
 <p align="center">
-  <img src="<img width="1582" height="1035" alt="Screenshot 2026-03-20 at 3 08 26 PM" src="https://github.com/user-attachments/assets/9d16c671-87db-4a24-a5ee-01408bd0536d" />
-" alt="Sidebar Dashboard" width="100%">
+  <img src="https://github.com/user-attachments/assets/9d16c671-87db-4a24-a5ee-01408bd0536d" alt="Journal Entries" width="100%">
 </p>
 
+### Chart of Accounts
 <p align="center">
-  <img src="<img width="1582" height="1035" alt="Screenshot 2026-03-20 at 3 08 47 PM" src="https://github.com/user-attachments/assets/c0372faa-62c1-47e9-9274-761a3d46ea73" />
-" alt="Journal Entries" width="100%">
+  <img src="https://github.com/user-attachments/assets/c0372faa-62c1-47e9-9274-761a3d46ea73" alt="Chart of Accounts" width="100%">
 </p>
 
+### Currencies & Exchange Rates
 <p align="center">
-  <img src="<img width="1582" height="1035" alt="Screenshot 2026-03-20 at 3 09 01 PM" src="https://github.com/user-attachments/assets/13cab52a-3eef-4b9a-be8f-88a268a6801a" />
-" alt="Chart of Accounts" width="100%">
+  <img src="https://github.com/user-attachments/assets/13cab52a-3eef-4b9a-be8f-88a268a6801a" alt="Currencies & Exchange Rates" width="100%">
 </p>
 
+### Audit Log
 <p align="center">
-  <img src="<img width="1582" height="1035" alt="Screenshot 2026-03-20 at 3 09 01 PM" src="<img width="1582" height="1035" alt="Screenshot 2026-03-20 at 3 10 22 PM" src="https://github.com/user-attachments/assets/ab07dd17-3ad3-4633-a4d0-b88bfa2420a7" />
-" />
-" alt="Currencies and Exchange Rates" width="100%">
+  <img src="https://github.com/user-attachments/assets/ab07dd17-3ad3-4633-a4d0-b88bfa2420a7" alt="Audit Log" width="100%">
 </p>
 
+### Settings
 <p align="center">
-  <img src="<img width="1582" height="1035" alt="Screenshot 2026-03-20 at 3 09 01 PM" src="<img width="1582" height="1035" alt="Screenshot 2026-03-20 at 3 10 22 PM" src="<img width="1582" height="1035" alt="Screenshot 2026-03-20 at 3 10 40 PM" src="https://github.com/user-attachments/assets/07d4f3eb-9695-4a6c-824b-b7ebb1cf9ea4" />
-" />
-" />
-" alt="Audit Log" width="100%">
+  <img src="https://github.com/user-attachments/assets/e4297876-9b90-4b81-97e2-cd72bdb9042d" alt="Settings" width="100%">
 </p>
-
-<p align="center">
-  <img src="<img width="1582" height="1035" alt="Screenshot 2026-03-20 at 3 09 01 PM" src="<img width="1582" height="1035" alt="Screenshot 2026-03-20 at 3 10 22 PM" src="<img width="1582" height="1035" alt="Screenshot 2026-03-20 at 3 10 40 PM" src="https://github.com/user-attachments/assets/07d4f3eb-9695-4a6c-824b-b7<img width="1582" height="1035" alt="Screenshot 2026-03-20 at 3 10 57 PM" src="https://github.com/user-attachments/assets/e4297876-9b90-4b81-97e2-cd72bdb9042d" />
-ebb1cf9ea4" />
-" />
-" />
-" alt="Settings" width="100%">
-</p>
-
 
 ## Tech Stack
 - HTML
