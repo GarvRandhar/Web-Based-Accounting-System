@@ -1,44 +1,54 @@
-# Web Based Accounting System
+# Web-Based Accounting System
 
-Welcome to the Web Based Accounting System. This comprehensive platform allows users to manage various accounting functionalities in a streamlined and efficient manner.
+![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Status](https://img.shields.io/badge/status-active-success.svg)
 
-## Expanded Feature Set
+## Description
+A comprehensive web-based accounting system designed for small to medium-sized businesses that helps manage finances with ease.
 
-- **Journal Entries:** Easily record transactions with automated postings.
-- **Chart of Accounts:** Organize financial transactions through a customizable chart.
-- **Invoices:** Generate professional invoices quickly and track payments seamlessly.
-- **Bills:** Manage vendor bills and track expenses efficiently.
-- **Customers:** Maintain detailed customer profiles and transaction histories.
-- **Vendors:** Manage vendor contacts and procurement details.
-- **Products:** Keep track of inventory and product details.
-- **Warehouses:** Manage multiple warehouses for optimal stock control.
-- **Stock Ledger:** Track stock levels and movements effortlessly.
-- **Tax Groups:** Customize tax calculations to meet your business needs.
-- **Cost Centers:** Analyze expenses by different departments or project areas.
-- **Currencies:** Manage transactions in multiple currencies with real-time conversion.
-- **Employees:** Maintain employee records and track performance.
-- **Payroll:** Automate payroll calculations and manage employee payments.
-- **Fixed Assets:** Track the depreciation and maintenance of fixed assets.
-
-## Live Demo
-
-Experience the live version of our Web Based Accounting System at: [web-based-accounting-system.onrender.com](http://web-based-accounting-system.onrender.com)
-
-## Screenshots
-
-![Dashboard with Sidebar](images/1.png)
-![General Ledger](images/2.png)
-![Chart of Accounts](images/3.png)
-![Additional View](images/4.png)
+## Features
+- **User-friendly Interface**: Intuitive design for easy navigation.
+- **Invoice Management**: Create, customize, and manage invoices effortlessly.
+- **Expense Tracking**: Keep track of your expenses to maintain financial health.
+- **Reporting Tools**: Generate detailed financial reports for analysis.
 
 ## Technology Stack
+- **Frontend**: HTML, CSS, JavaScript, Bootstrap
+- **Backend**: Node.js, Express.js
+- **Database**: MongoDB
 
-- JavaScript
-- TypeScript
-- Node.js
-- Express
-- MongoDB
+## Live Demo
+[Try the Live Demo Here](https://yourlivedemo.link)
 
-## Getting Started
+## Screenshots
+![Screenshot1](https://yourlinktoscreenshot1.com)
+![Screenshot2](https://yourlinktoscreenshot2.com)
 
-To get started with this project, clone the repository and install the necessary dependencies. Follow the instructions in the documentation for setup and usage.
+## Installation Instructions
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/GarvRandhar/Web-Based-Accounting-System.git
+   ```
+2. Navigate to the project directory:
+   ```bash
+   cd Web-Based-Accounting-System
+   ```
+3. Install dependencies:
+   ```bash
+   npm install
+   ```
+4. Start the application:
+   ```bash
+   npm start
+   ```
+
+## Contribution
+Contributions are welcome! Feel free to fork the repository and submit a pull request.
+
+## License
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+---
+
+## Contact
+For any inquiries, please contact: GarvRandhar
