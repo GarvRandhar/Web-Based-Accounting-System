@@ -4,10 +4,6 @@
 [![Status](https://img.shields.io/badge/status-live-success.svg)](https://web-based-accounting-system.onrender.com)
 [![Live Demo](https://img.shields.io/badge/demo-online-brightgreen)](https://web-based-accounting-system.onrender.com)
 
-<p align="center">
-  <img src="https://github.com/GarvRandhar/Web-Based-Accounting-System/raw/main/assets/dashboard.png" alt="Accounting Pro Dashboard" width="100%">
-</p>
-
 ## Modern Web-Based Accounting for Real Finance Workflows
 Accounting Pro is a modern, production-ready accounting system built to manage core business finance workflows in one place. It brings together a polished dashboard, ledger management, chart of accounts, invoices, bills, customers, vendors, products, warehouses, stock tracking, tax groups, cost centers, currencies, employees, payroll, and fixed assets in a clean, dark-themed interface.
 
