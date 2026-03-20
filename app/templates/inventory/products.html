@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Products — Inventory{% endblock %}
+{% block page_title %}Products{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:1rem;">
+    <div class="section-header">
+        <h3>Add Product</h3>
+    </div>
+    <form method="POST" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:.75rem;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label>SKU *</label>
+            <input type="text" name="sku" class="form-control" required placeholder="e.g. PROD-001">
+        </div>
+        <div class="form-group">
+            <label>Product Name *</label>
+            <input type="text" name="name" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label>Unit</label>
+            <select name="unit" class="form-control">
+                <option value="Nos">Nos</option>
+                <option value="Kg">Kg</option>
+                <option value="Ltr">Ltr</option>
+                <option value="Mtr">Mtr</option>
+                <option value="Box">Box</option>
+                <option value="Pcs">Pcs</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Purchase Price</label>
+            <input type="number" name="purchase_price" class="form-control" step="0.01" value="0">
+        </div>
+        <div class="form-group">
+            <label>Selling Price</label>
+            <input type="number" name="selling_price" class="form-control" step="0.01" value="0">
+        </div>
+        <div class="form-group">
+            <label>Valuation Method</label>
+            <select name="valuation_method" class="form-control">
+                <option value="AVG">Weighted Average</option>
+                <option value="FIFO">FIFO</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Inventory Account</label>
+            <select name="inventory_account_id" class="form-control">
+                <option value="">-- Select --</option>
+                {% for a in asset_accounts %}
+                <option value="{{ a.id }}">{{ a.code }} — {{ a.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>COGS / Expense Account</label>
+            <select name="expense_account_id" class="form-control">
+                <option value="">-- Select --</option>
+                {% for a in expense_accounts %}
+                <option value="{{ a.id }}">{{ a.code }} — {{ a.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Revenue Account</label>
+            <select name="revenue_account_id" class="form-control">
+                <option value="">-- Select --</option>
+                {% for a in revenue_accounts %}
+                <option value="{{ a.id }}">{{ a.code }} — {{ a.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="grid-column: span 3;">
+            <label>Description</label>
+            <input type="text" name="description" class="form-control" placeholder="Optional description">
+        </div>
+        <div style="grid-column: span 3;">
+            <button type="submit" class="btn btn-primary">Create Product</button>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <div class="section-header">
+        <h3>All Products</h3>
+        <span class="text-secondary text-sm">{{ products|length }} product(s)</span>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>SKU</th>
+                <th>Name</th>
+                <th>Unit</th>
+                <th class="text-right">Purchase Price</th>
+                <th class="text-right">Selling Price</th>
+                <th class="text-right">Stock Qty</th>
+                <th class="text-right">Stock Value</th>
+                <th>Valuation</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in products %}
+            <tr>
+                <td class="text-secondary">{{ p.sku }}</td>
+                <td>{{ p.name }}</td>
+                <td>{{ p.unit }}</td>
+                <td class="text-right">{{ "%.2f"|format(p.purchase_price) }}</td>
+                <td class="text-right">{{ "%.2f"|format(p.selling_price) }}</td>
+                <td class="text-right">{{ "%.1f"|format(p._stock_qty) }}</td>
+                <td class="text-right">{{ "%.2f"|format(p._stock_value) }}</td>
+                <td><span class="badge badge-posted">{{ p.valuation_method }}</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-secondary">No products yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

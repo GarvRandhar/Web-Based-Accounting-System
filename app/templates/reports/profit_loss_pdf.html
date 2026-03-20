@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Profit & Loss</title>
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .table td,
+        .table th {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .bold {
+            font-weight: bold;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            background-color: #f8f9fa;
+            padding: 5px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>Profit & Loss Statement</h1>
+        <p>Period: {{ data.start_date.strftime('%Y-%m-%d') }} to {{ data.end_date.strftime('%Y-%m-%d') }}</p>
+    </div>
+
+    <div class="section-title">Revenue</div>
+    <table class="table">
+        {% for acc in data.revenue.accounts %}
+        <tr>
+            <td>{{ acc.code }} - {{ acc.name }}</td>
+            <td class="text-right">{{ "%.2f"|format(acc.balance) }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="bold">
+            <td>Total Revenue</td>
+            <td class="text-right">{{ "%.2f"|format(data.revenue.total) }}</td>
+        </tr>
+    </table>
+
+    <div class="section-title">Expenses</div>
+    <table class="table">
+        {% for acc in data.expenses.accounts %}
+        <tr>
+            <td>{{ acc.code }} - {{ acc.name }}</td>
+            <td class="text-right">{{ "%.2f"|format(acc.balance) }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="bold">
+            <td>Total Expenses</td>
+            <td class="text-right">{{ "%.2f"|format(data.expenses.total) }}</td>
+        </tr>
+    </table>
+
+    <div
+        style="margin-top: 30px; padding: 10px; background-color: #eee; font-weight: bold; font-size: 1.2em; display: flex; justify-content: space-between;">
+        <span>Net Income</span>
+        <span>{{ "%.2f"|format(data.net_income) }}</span>
+    </div>
+</body>
+
+</html>

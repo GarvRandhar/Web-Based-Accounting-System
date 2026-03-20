@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Log{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div
+        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+        <div>
+            <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Audit Log</h2>
+            <p style="color: var(--text-secondary);">System activity and security events.</p>
+        </div>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>User</th>
+                <th>Action</th>
+                <th>Target</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td>
+                    {% if log.user %}
+                    <span class="badge" style="background: #e2e8f0; color: #475569;">{{ log.user.username }}</span>
+                    {% else %}
+                    <span class="badge" style="background: #fee2e2; color: #991b1b;">System</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if log.action == 'CREATE' %}
+                    <span style="color: var(--success-color); font-weight: 500;">CREATE</span>
+                    {% elif log.action == 'UPDATE' %}
+                    <span style="color: var(--accent-color); font-weight: 500;">UPDATE</span>
+                    {% elif log.action == 'DELETE' %}
+                    <span style="color: var(--danger-color); font-weight: 500;">DELETE</span>
+                    {% else %}
+                    {{ log.action }}
+                    {% endif %}
+                </td>
+                <td>{{ log.model }} #{{ log.model_id }}</td>
+                <td style="color: var(--text-secondary);">{{ log.details }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 2rem;">No audit logs found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

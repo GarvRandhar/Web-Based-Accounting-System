@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Cost Centers{% endblock %}
+{% block page_title %}Cost Centers{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:1rem;">
+    <div class="section-header"><h3>Create Cost Center</h3></div>
+    <form method="POST" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:.75rem;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label>Code *</label>
+            <input type="text" name="code" class="form-control" required placeholder="e.g. CC-001">
+        </div>
+        <div class="form-group">
+            <label>Name *</label>
+            <input type="text" name="name" class="form-control" required placeholder="e.g. Marketing Dept">
+        </div>
+        <div class="form-group">
+            <label>Parent Center</label>
+            <select name="parent_id" class="form-control">
+                <option value="">— None (Top Level) —</option>
+                {% for cc in centers %}
+                <option value="{{ cc.id }}">{{ cc.code }} — {{ cc.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="grid-column: span 2;">
+            <label>Description</label>
+            <input type="text" name="description" class="form-control" placeholder="Optional">
+        </div>
+        <div style="display:flex; align-items:end;">
+            <button type="submit" class="btn btn-primary">Create</button>
+        </div>
+    </form>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+    <div class="card">
+        <div class="section-header">
+            <h3>All Cost Centers</h3>
+        </div>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Parent</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cc in centers %}
+                <tr>
+                    <td class="text-secondary">{{ cc.code }}</td>
+                    <td>{{ cc.name }}</td>
+                    <td class="text-secondary">{{ cc.parent.name if cc.parent else '—' }}</td>
+                    <td><span class="badge {{ 'badge-paid' if cc.is_active else 'badge-draft' }}">{{ 'Active' if cc.is_active else 'Inactive' }}</span></td>
+                    <td>
+                        <form method="POST" action="{{ url_for('cost_centers.deactivate', id=cc.id) }}" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger btn-sm">Deactivate</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-center text-secondary">No cost centers.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <div class="section-header">
+            <h3>Cost Center P&L Report</h3>
+        </div>
+        <form method="GET" action="{{ url_for('cost_centers.report') }}" style="display:flex; flex-direction:column; gap:.5rem;">
+            <select name="cost_center_id" class="form-control" required>
+                <option value="">— Select Cost Center —</option>
+                {% for cc in centers %}
+                <option value="{{ cc.id }}">{{ cc.code }} — {{ cc.name }}</option>
+                {% endfor %}
+            </select>
+            <div style="display:flex; gap:.5rem;">
+                <input type="date" name="start_date" class="form-control" placeholder="Start">
+                <input type="date" name="end_date" class="form-control" placeholder="End">
+            </div>
+            <button type="submit" class="btn btn-primary">Generate Report</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

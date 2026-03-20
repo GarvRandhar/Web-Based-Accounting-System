@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}New Journal Entry{% endblock %}
+
+{% block content %}
+<div class="card">
+    <form method="POST" id="journalForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+            <div class="form-group" style="flex: 1;">
+                <label class="form-label">Date</label>
+                <input type="date" name="date" class="form-control" value="{{ today }}" required>
+            </div>
+
+            <div class="form-group" style="flex: 2;">
+                <label class="form-label">Description</label>
+                <input type="text" name="description" class="form-control" placeholder="e.g. Monthly Rent Payment"
+                    required>
+            </div>
+
+            <div class="form-group" style="flex: 1;">
+                <label class="form-label">Reference #</label>
+                <input type="text" name="reference" class="form-control" placeholder="Optional">
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="table" id="journalTable">
+                <thead>
+                    <tr>
+                        <th style="width: 40%;">Account</th>
+                        <th style="width: 25%;">Debit</th>
+                        <th style="width: 25%;">Credit</th>
+                        <th style="width: 10%;"></th>
+                    </tr>
+                </thead>
+                <tbody id="journalRows">
+                    <!-- Rows will be added here -->
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td style="text-align: right; font-weight: bold;">Types:</td>
+                        <td id="totalDebit" style="font-weight: bold;">0.00</td>
+                        <td id="totalCredit" style="font-weight: bold;">0.00</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td colspan="4" id="balanceMsg" style="text-align: center; color: var(--text-secondary);">
+                            Difference: 0.00
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div style="margin-top: 1rem; display: flex; gap: 1rem;">
+            <button type="button" class="btn"
+                style="background: var(--background-color); border: 1px solid var(--border-color);" onclick="addRow()">
+                + Add Line
+            </button>
+            <button type="submit" class="btn btn-primary" id="submitBtn" disabled>Post Entry</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    const accounts = [
+        {% for acc in accounts %}
+    { id: "{{ acc.id }}", name: "{{ acc.code }} - {{ acc.name }}" },
+    {% endfor %}
+    ];
+
+    let rowCount = 0;
+
+    function addRow() {
+        const tbody = document.getElementById('journalRows');
+        const tr = document.createElement('tr');
+
+        // Account Select
+        let options = '<option value="">Select Account</option>';
+        accounts.forEach(acc => {
+            options += `<option value="${acc.id}">${acc.name}</option>`;
+        });
+
+        tr.innerHTML = `
+            <td>
+                <select name="items[${rowCount}][account_id]" class="form-control" required>
+                    ${options}
+                </select>
+            </td>
+            <td>
+                <input type="number" step="0.01" name="items[${rowCount}][debit]" class="form-control debit-input" placeholder="0.00" oninput="calculateTotals()">
+            </td>
+            <td>
+                <input type="number" step="0.01" name="items[${rowCount}][credit]" class="form-control credit-input" placeholder="0.00" oninput="calculateTotals()">
+            </td>
+            <td>
+                <button type="button" class="btn btn-danger" style="padding: 0.4rem;" onclick="removeRow(this)">x</button>
+            </td>
+        `;
+
+        tbody.appendChild(tr);
+        rowCount++;
+    }
+
+    function removeRow(btn) {
+        btn.closest('tr').remove();
+        calculateTotals();
+    }
+
+    function calculateTotals() {
+        let totalDebit = 0;
+        let totalCredit = 0;
+
+        document.querySelectorAll('.debit-input').forEach(input => {
+            totalDebit += parseFloat(input.value) || 0;
+        });
+
+        document.querySelectorAll('.credit-input').forEach(input => {
+            totalCredit += parseFloat(input.value) || 0;
+        });
+
+        document.getElementById('totalDebit').innerText = totalDebit.toFixed(2);
+        document.getElementById('totalCredit').innerText = totalCredit.toFixed(2);
+
+        const diff = Math.abs(totalDebit - totalCredit);
+        const msg = document.getElementById('balanceMsg');
+        const btn = document.getElementById('submitBtn');
+
+        if (diff < 0.01 && totalDebit > 0) {
+            msg.innerText = "Balanced";
+            msg.style.color = "var(--success-color)";
+            btn.disabled = false;
+        } else {
+            msg.innerText = `Difference: ${diff.toFixed(2)}`;
+            msg.style.color = "var(--danger-color)";
+            btn.disabled = true;
+        }
+    }
+
+    // Add initial rows
+    window.onload = function () {
+        addRow();
+        addRow();
+    };
+</script>
+{% endblock %}

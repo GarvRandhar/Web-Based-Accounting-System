@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Trial Balance{% endblock %}
+{% block page_title %}Trial Balance{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 800px;">
+    <div class="report-header">
+        <h2>{{ company_settings.company_name }}</h2>
+        <p>Trial Balance</p>
+        <p>As of {{ date.strftime('%B %d, %Y') }}</p>
+    </div>
+
+    <div style="margin-bottom: 1rem; display: flex; justify-content: flex-end;">
+        <form method="GET" style="display: flex; gap: 0.5rem; align-items: center;">
+            <label class="form-label" style="margin-bottom: 0; white-space: nowrap;">As of:</label>
+            <input type="date" name="date" class="form-control" style="width: auto;" value="{{ date }}"
+                onchange="this.form.submit()">
+        </form>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Account Name</th>
+                <th class="text-right">Debit</th>
+                <th class="text-right">Credit</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in accounts %}
+            <tr>
+                <td class="font-mono" style="color: var(--text-secondary);">{{ row.code }}</td>
+                <td>{{ row.name }}</td>
+                <td class="text-right" style="font-variant-numeric: tabular-nums;">
+                    {% if row.debit > 0 %}{{ company_settings.currency_symbol }}{{ "%.2f"|format(row.debit) }}{% endif
+                    %}
+                </td>
+                <td class="text-right" style="font-variant-numeric: tabular-nums;">
+                    {% if row.credit > 0 %}{{ company_settings.currency_symbol }}{{ "%.2f"|format(row.credit) }}{% endif
+                    %}
+                </td>
+            </tr>
+            {% endfor %}
+            <tr style="font-weight: 700; border-top: 2px solid var(--text-primary);">
+                <td colspan="2">Total</td>
+                <td class="text-right" style="font-variant-numeric: tabular-nums;">{{ company_settings.currency_symbol
+                    }}{{ "%.2f"|format(total_debit) }}</td>
+                <td class="text-right" style="font-variant-numeric: tabular-nums;">{{ company_settings.currency_symbol
+                    }}{{ "%.2f"|format(total_credit) }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    {% if abs(total_debit - total_credit) < 0.01 %} <div class="alert alert-success" style="margin-top: 1rem;">
+        ✓ Trial balance is balanced.
+</div>
+{% else %}
+<div class="alert alert-danger" style="margin-top: 1rem;">
+    ✗ Trial balance is NOT balanced. Difference: {{ company_settings.currency_symbol }}{{ "%.2f"|format(total_debit -
+    total_credit) }}
+</div>
+{% endif %}
+
+<!-- TB Distribution Chart -->
+<div style="margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+    <div class="chart-card">
+        <h3>Debit Distribution</h3>
+        <div style="height: 180px;"><canvas id="debitChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <h3>Credit Distribution</h3>
+        <div style="height: 180px;"><canvas id="creditChart"></canvas></div>
+    </div>
+</div>
+
+<div style="margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
+    <a href="{{ url_for('reports.index') }}" class="btn btn-secondary">← Back</a>
+    <button onclick="window.print()" class="btn btn-primary">Print / Save as PDF</button>
+</div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.font.size = 11;
+        Chart.defaults.color = '#6b7385';
+
+        const debitLabels = [];
+        const debitData = [];
+        const creditLabels = [];
+        const creditData = [];
+
+        {% for row in accounts %}
+        {% if row.debit > 0 %}
+        debitLabels.push('{{ row.name }}');
+        debitData.push({{ row.debit }});
+    {% endif %}
+    {% if row.credit > 0 %}
+    creditLabels.push('{{ row.name }}');
+    creditData.push({{ row.credit }});
+    {% endif %}
+    {% endfor %}
+
+    const blueScale = ['#1a3a6e', '#2c5cc5', '#5a8dee', '#7da8f2', '#a4c2f7', '#c5d5f7', '#dce6fa', '#eef3fd'];
+
+    new Chart(document.getElementById('debitChart'), {
+        type: 'doughnut',
+        data: {
+            labels: debitLabels,
+            datasets: [{ data: debitData, backgroundColor: blueScale, borderWidth: 1, borderColor: '#fff' }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, cutout: '60%',
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, padding: 6, font: { size: 10 } } } }
+        }
+    });
+
+    new Chart(document.getElementById('creditChart'), {
+        type: 'doughnut',
+        data: {
+            labels: creditLabels,
+            datasets: [{ data: creditData, backgroundColor: blueScale, borderWidth: 1, borderColor: '#fff' }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, cutout: '60%',
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, padding: 6, font: { size: 10 } } } }
+        }
+    });
+});
+</script>
+{% endblock %}

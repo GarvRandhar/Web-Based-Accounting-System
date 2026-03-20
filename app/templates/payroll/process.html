@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Process Payroll{% endblock %}
+{% block page_title %}Payroll Processing{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:1rem;">
+    <div class="section-header"><h3>Run Payroll</h3></div>
+    <form method="POST" style="display:flex; gap:.75rem; align-items:end;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="run">
+        <div class="form-group" style="flex:1;">
+            <label>Period *</label>
+            <input type="month" name="period" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Process Payroll</button>
+    </form>
+</div>
+
+<div class="card">
+    <div class="section-header"><h3>Payroll History</h3></div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Period</th>
+                <th>Run Date</th>
+                <th class="text-right">Gross</th>
+                <th class="text-right">Deductions</th>
+                <th class="text-right">Net Pay</th>
+                <th>Employees</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in entries %}
+            <tr>
+                <td><strong>{{ e.period }}</strong></td>
+                <td>{{ e.run_date.strftime('%Y-%m-%d') }}</td>
+                <td class="text-right">{{ "%.2f"|format(e.total_gross) }}</td>
+                <td class="text-right text-danger">{{ "%.2f"|format(e.total_deductions) }}</td>
+                <td class="text-right"><strong>{{ "%.2f"|format(e.total_net) }}</strong></td>
+                <td>{{ e.payroll_items|length }}</td>
+                <td><span class="badge {{ 'badge-paid' if e.status == 'Posted' else 'badge-draft' }}">{{ e.status }}</span></td>
+                <td>
+                    {% if e.status == 'Draft' %}
+                    <form method="POST" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="post">
+                        <input type="hidden" name="payroll_entry_id" value="{{ e.id }}">
+                        <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('Post payroll to GL?')">Post to GL</button>
+                    </form>
+                    {% endif %}
+                    {% for pi in e.payroll_items %}
+                    <a href="{{ url_for('payroll.payslip', id=pi.id) }}" class="text-accent text-sm" style="margin-left:.25rem;">Payslip</a>
+                    {% endfor %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-secondary">No payroll runs yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
