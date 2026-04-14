@@ -2,7 +2,7 @@ from app.extensions import db
 from app.models import FixedAsset, DepreciationSchedule, Account
 from app.services.accounting import AccountingService
 from app.services.audit import AuditService
-from datetime import datetime
+from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
 
 
@@ -114,7 +114,7 @@ class AssetService:
     @staticmethod
     def post_depreciation(schedule_id):
         """Posts a single depreciation schedule entry to the GL."""
-        ds = DepreciationSchedule.query.get(schedule_id)
+        ds = db.session.get(DepreciationSchedule, schedule_id)
         if not ds:
             raise ValueError("Depreciation schedule not found.")
         if ds.journal_entry_id:
@@ -144,9 +144,15 @@ class AssetService:
     @staticmethod
     def dispose_asset(asset_id, disposed_date=None, disposed_amount=0):
         """
-        Disposes/sells an asset, recording any gain or loss.
+        Disposes/sells an asset, recording any gain or loss in the GL.
+
+        Journal Entry on disposal:
+          Dr  Accumulated Depreciation   (total posted depreciation)
+          Dr  Bank / Cash               (sale proceeds, if any)
+          Cr  Fixed Asset Account        (original purchase price)
+          Dr/Cr Gain or Loss on Disposal (balancing amount)
         """
-        asset = FixedAsset.query.get(asset_id)
+        asset = db.session.get(FixedAsset, asset_id)
         if not asset:
             raise ValueError("Asset not found.")
         if asset.status != 'Active':
@@ -154,13 +160,82 @@ class AssetService:
 
         if isinstance(disposed_date, str):
             disposed_date = datetime.strptime(disposed_date, '%Y-%m-%d').date()
-        disposed_date = disposed_date or datetime.utcnow().date()
+        disposed_date = disposed_date or datetime.now(timezone.utc).date()
+        disposed_amount = float(disposed_amount)
 
-        asset.status = 'Disposed' if float(disposed_amount) == 0 else 'Sold'
+        # ── Validate required GL accounts ──────────────────────────────
+        if not asset.asset_account_id:
+            raise ValueError("Asset GL account not configured. Cannot post disposal entry.")
+        if not asset.accumulated_dep_account_id:
+            raise ValueError("Accumulated Depreciation account not configured. Cannot post disposal entry.")
+
+        total_posted_dep = asset.total_depreciated           # sum of posted depreciation only
+        purchase_price   = float(asset.purchase_price)
+        book_value       = purchase_price - total_posted_dep  # Net Book Value
+        gain_loss        = disposed_amount - book_value        # +ve = gain, -ve = loss
+
+        # ── Build double-entry journal ──────────────────────────────────
+        je_items = []
+
+        # 1. Remove Accumulated Depreciation (Dr)
+        if total_posted_dep > 0:
+            je_items.append({
+                'account_id': asset.accumulated_dep_account_id,
+                'debit': round(total_posted_dep, 2),
+                'credit': 0
+            })
+
+        # 2. Remove Asset at Cost (Cr)
+        je_items.append({
+            'account_id': asset.asset_account_id,
+            'debit': 0,
+            'credit': round(purchase_price, 2)
+        })
+
+        # 3. Record cash/bank proceeds (Dr)
+        if disposed_amount > 0:
+            bank_account = Account.query.filter_by(code='1020').first()
+            if not bank_account:
+                # Fallback to Cash
+                bank_account = Account.query.filter_by(code='1010').first()
+            if not bank_account:
+                raise ValueError("No Bank (1020) or Cash (1010) account found to record disposal proceeds.")
+            je_items.append({
+                'account_id': bank_account.id,
+                'debit': round(disposed_amount, 2),
+                'credit': 0
+            })
+
+        # 4. Recognise Gain or Loss (balancing entry)
+        #    Gain → Credit a Revenue / Other Income account
+        #    Loss → Debit an Expense account
+        #    We use the Depreciation Expense account as a proxy for gain/loss unless
+        #    a dedicated account exists.
+        if abs(gain_loss) > 0.01:
+            gl_account = (
+                asset.depreciation_account_id or
+                (Account.query.filter_by(code='5010').first() or Account.query.filter_by(type='Expense').first()).id
+            )
+            if gain_loss > 0:
+                # Gain on disposal → Credit
+                je_items.append({'account_id': gl_account, 'debit': 0, 'credit': round(gain_loss, 2)})
+            else:
+                # Loss on disposal → Debit
+                je_items.append({'account_id': gl_account, 'debit': round(abs(gain_loss), 2), 'credit': 0})
+
+        AccountingService.create_journal_entry(
+            date=disposed_date,
+            description=f"Asset Disposal: {asset.name} ({asset.asset_code})",
+            items=je_items,
+            reference=f"DISP-{asset.asset_code}"
+        )
+
+        # ── Update asset record ─────────────────────────────────────────
+        asset.status = 'Sold' if disposed_amount > 0 else 'Disposed'
         asset.disposed_date = disposed_date
         asset.disposed_amount = disposed_amount
-
         db.session.commit()
+
         AuditService.log(action='UPDATE', model='FixedAsset', model_id=asset.id,
-                         details=f"Asset disposed: {asset.name}, amount: {disposed_amount}")
+                         details=f"Asset disposed: {asset.name}, proceeds: {disposed_amount}, gain/loss: {gain_loss:.2f}")
         return asset

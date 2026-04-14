@@ -4,7 +4,7 @@ from app.models import (Employee, SalaryComponent, SalaryStructure,
                          SalaryStructureDetail, PayrollEntry, PayrollItem, Account)
 from app.services.accounting import AccountingService
 from app.services.audit import AuditService
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class PayrollService:
@@ -120,7 +120,11 @@ class PayrollService:
         if run_date and isinstance(run_date, str):
             run_date = datetime.strptime(run_date, '%Y-%m-%d').date()
         else:
-            run_date = datetime.utcnow().date()
+            run_date = datetime.now(timezone.utc).date()
+
+        existing = PayrollEntry.query.filter_by(period=period).first()
+        if existing:
+            raise ValueError(f"Payroll for period '{period}' has already been processed.")
 
         employees = Employee.query.filter_by(is_active=True)\
             .filter(Employee.salary_structure_id.isnot(None)).all()
@@ -165,7 +169,7 @@ class PayrollService:
         Cr: Bank/Cash (1020) for net pay
         Cr: Individual deduction accounts for statutory amounts
         """
-        entry = PayrollEntry.query.get(payroll_entry_id)
+        entry = db.session.get(PayrollEntry, payroll_entry_id)
         if not entry:
             raise ValueError("Payroll entry not found.")
         if entry.status == 'Posted':
@@ -187,7 +191,7 @@ class PayrollService:
             components = json.loads(pi.components_json) if pi.components_json else []
             for comp in components:
                 if comp['component_type'] == 'Deduction' and comp['amount'] > 0:
-                    sc = SalaryComponent.query.get(comp['component_id'])
+                    sc = db.session.get(SalaryComponent, comp['component_id'])
                     acc_id = sc.account_id if sc and sc.account_id else None
                     if acc_id:
                         deduction_map[acc_id] = deduction_map.get(acc_id, 0) + comp['amount']
@@ -197,7 +201,10 @@ class PayrollService:
 
         # Net pay → Bank
         total_deduction_posted = sum(deduction_map.values())
-        net_to_bank = float(entry.total_gross) - total_deduction_posted
+        if abs(total_deduction_posted - float(entry.total_deductions)) > 0.01:
+            raise ValueError("All deducted salary components must be mapped to a General Ledger account to post payroll.")
+
+        net_to_bank = float(entry.total_net)
         if net_to_bank > 0:
             je_items.append({'account_id': bank_account.id, 'debit': 0, 'credit': net_to_bank})
 

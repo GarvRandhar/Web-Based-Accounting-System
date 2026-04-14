@@ -9,9 +9,10 @@
             <h2>Invoices</h2>
             <p class="text-secondary">Manage customer invoices and payments</p>
         </div>
-        <a href="{{ url_for('ar.new_invoice') }}" class="btn btn-primary">
-            + Create Invoice
-        </a>
+        <div style="display:flex; gap:0.5rem;">
+            <a href="{{ url_for('ar.ar_aging') }}" class="btn btn-secondary">AR Aging Report</a>
+            <a href="{{ url_for('ar.new_invoice') }}" class="btn btn-primary">+ Create Invoice</a>
+        </div>
     </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -30,7 +31,8 @@
                 <th>Customer</th>
                 <th>Status</th>
                 <th>Due Date</th>
-                <th class="text-right">Amount</th>
+                <th class="text-right">Total</th>
+                <th class="text-right">Balance Due</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -38,25 +40,38 @@
             {% for invoice in invoices %}
             <tr>
                 <td><a href="{{ url_for('ar.view_invoice', id=invoice.id) }}"
-                        style="font-weight: bold; color: var(--primary-color);">#{{ invoice.id }}</a></td>
+                        style="font-weight: bold; color: var(--primary-color);">{{ invoice.invoice_number or ('#' ~ invoice.id) }}</a></td>
                 <td>{{ invoice.date.strftime('%Y-%m-%d') }}</td>
                 <td>{{ invoice.customer.name }}</td>
                 <td>
                     <span style="padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.875rem; 
                         background: {% if invoice.status == 'Draft' %}#f1f5f9; color: #64748b;
                                     {% elif invoice.status == 'Sent' %}#dbeafe; color: #1e40af;
+                                    {% elif invoice.status == 'Overdue' %}#fee2e2; color: #991b1b;
                                     {% elif invoice.status == 'Paid' %}#dcfce7; color: #166534;
-                                    {% elif invoice.status == 'Cancelled' %}#fee2e2; color: #991b1b;
+                                    {% elif invoice.status == 'Cancelled' %}#f1f5f9; color: #94a3b8;
                                     {% else %}#fee2e2; color: #991b1b;{% endif %}">
                         {{ invoice.status }}
                     </span>
                 </td>
                 <td>{{ invoice.due_date.strftime('%Y-%m-%d') }}</td>
-                <td class="text-right">{{ company_settings.currency_symbol }}{{ "%.2f"|format(invoice.total_amount) }}
+                <td class="text-right">{{ company_settings.currency_symbol }}{{ "%.2f"|format(invoice.total_amount) }}</td>
+                <td class="text-right">
+                    {% if invoice.status in ('Sent', 'Overdue') %}
+                        <span style="color: {% if invoice.balance_due > 0 %}#ef4444{% else %}#10b981{% endif %}; font-weight:600;">
+                            {{ company_settings.currency_symbol }}{{ "%.2f"|format(invoice.balance_due) }}
+                        </span>
+                    {% elif invoice.status == 'Paid' %}
+                        <span style="color:#10b981;">Paid</span>
+                    {% else %}—{% endif %}
                 </td>
-                <td>
+                <td style="display:flex; gap:0.4rem; flex-wrap:wrap;">
                     <a href="{{ url_for('ar.view_invoice', id=invoice.id) }}" class="btn btn-secondary"
                         style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">View</a>
+                    {% if invoice.status in ('Sent', 'Overdue') %}
+                    <a href="{{ url_for('ar.pay_invoice', id=invoice.id) }}" class="btn btn-primary"
+                        style="padding: 0.25rem 0.5rem; font-size: 0.875rem; background:#10b981; border-color:#10b981;">Pay</a>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

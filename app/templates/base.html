@@ -21,12 +21,13 @@
         <div id="react-sidebar-root" class="tw-root"
             data-company-name="{{ company_settings.company_name if company_settings else 'AcctPro' }}"
             data-current-endpoint="{{ request.endpoint }}"
-            data-is-admin="{{ 'true' if current_user.role == 'Admin' else 'false' }}"
+            data-is-admin="{{ 'true' if (current_user.role or '').lower() == 'admin' else 'false' }}"
             data-user-name="{{ current_user.name or current_user.username }}"
             data-url-dashboard="{{ url_for('main.dashboard') }}"
             data-url-journals="{{ url_for('accounting.list_journals') }}"
             data-url-accounts="{{ url_for('accounting.list_accounts') }}"
             data-url-invoices="{{ url_for('ar.invoices') }}" data-url-bills="{{ url_for('ap.bills') }}"
+            data-url-ar-aging="{{ url_for('ar.ar_aging') }}" data-url-ap-aging="{{ url_for('ap.ap_aging') }}"
             data-url-customers="{{ url_for('ar.customers') }}" data-url-vendors="{{ url_for('ap.vendors') }}"
             data-url-reports="{{ url_for('reports.index') }}"
             data-url-reconciliation="{{ url_for('reconciliation.index') }}"
@@ -51,6 +52,9 @@
             <header class="top-bar">
                 <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
                 <div class="user-menu">
+                    {% if (current_user.role or '').lower() == 'admin' %}
+                    <a href="{{ url_for('admin.users_panel') }}" class="btn">Admin Panel</a>
+                    {% endif %}
                     <span>{{ current_user.name or current_user.username }}</span>
                     <a href="{{ url_for('auth.logout') }}" class="btn btn-danger">Logout</a>
                 </div>

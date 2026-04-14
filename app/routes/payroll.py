@@ -5,6 +5,7 @@ from app.models import (Employee, SalaryComponent, SalaryStructure,
                          PayrollEntry, PayrollItem, Account, db)
 from app.services.payroll import PayrollService
 from app.services.audit import AuditService
+from app.decorators import accountant_or_admin_required
 
 payroll_bp = Blueprint('payroll', __name__, url_prefix='/payroll')
 
@@ -13,6 +14,7 @@ payroll_bp = Blueprint('payroll', __name__, url_prefix='/payroll')
 
 @payroll_bp.route('/employees', methods=['GET', 'POST'])
 @login_required
+@accountant_or_admin_required
 def employees():
     if request.method == 'POST':
         try:
@@ -40,6 +42,7 @@ def employees():
 
 @payroll_bp.route('/employees/<int:id>/edit', methods=['POST'])
 @login_required
+@accountant_or_admin_required
 def edit_employee(id):
     emp = Employee.query.get_or_404(id)
     emp.name = request.form.get('name', emp.name).strip()
@@ -59,6 +62,7 @@ def edit_employee(id):
 
 @payroll_bp.route('/components', methods=['GET', 'POST'])
 @login_required
+@accountant_or_admin_required
 def components():
     if request.method == 'POST':
         try:
@@ -83,6 +87,7 @@ def components():
 
 @payroll_bp.route('/salary-structures', methods=['GET', 'POST'])
 @login_required
+@accountant_or_admin_required
 def salary_structures():
     if request.method == 'POST':
         try:
@@ -119,6 +124,7 @@ def salary_structures():
 
 @payroll_bp.route('/process', methods=['GET', 'POST'])
 @login_required
+@accountant_or_admin_required
 def process():
     if request.method == 'POST':
         action = request.form.get('action')

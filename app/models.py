@@ -1,7 +1,16 @@
-from datetime import datetime
-from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime, timezone
+
+
+def _now():
+    """Timezone-aware UTC timestamp helper."""
+    return datetime.now(timezone.utc)
+
+def _today():
+    """Returns today's date."""
+    return datetime.now(timezone.utc).date()
 from flask_login import UserMixin
 from .extensions import db
+from .extensions import bcrypt
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -9,14 +18,54 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
     name = db.Column(db.String(100))
-    role = db.Column(db.String(20), default='Viewer') # Admin, Editor, Viewer
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    role = db.Column(db.String(20), nullable=False, default='viewer')  # admin, accountant, viewer
+    invited_at = db.Column(db.DateTime)
+    password_changed_at = db.Column(db.DateTime)
+    status = db.Column(db.String(20), nullable=False, default='pending')  # pending, active
+    created_at = db.Column(db.DateTime, default=_now)
+
+    ALLOWED_ROLES = {'admin', 'accountant', 'viewer'}
+    ALLOWED_STATUSES = {'pending', 'active'}
+
+    def normalize_role(self):
+        if self.role:
+            self.role = self.role.strip().lower()
+
+    def normalize_status(self):
+        if self.status:
+            self.status = self.status.strip().lower()
+
+    def is_admin(self):
+        return (self.role or '').lower() == 'admin'
+
+    def requires_password_change(self):
+        return (self.status or '').lower() == 'pending' or self.password_changed_at is None
+
+    def activate(self):
+        self.status = 'active'
+        self.password_changed_at = _now()
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+        self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
 
     def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
+        return bcrypt.check_password_hash(self.password_hash, password)
+
+
+@db.event.listens_for(User, 'before_insert')
+def normalize_user_before_insert(mapper, connection, target):
+    target.normalize_role()
+    target.normalize_status()
+    if target.role not in User.ALLOWED_ROLES:
+        target.role = 'viewer'
+    if target.status not in User.ALLOWED_STATUSES:
+        target.status = 'pending'
+
+
+@db.event.listens_for(User, 'before_update')
+def normalize_user_before_update(mapper, connection, target):
+    target.normalize_role()
+    target.normalize_status()
 
 class Account(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -25,7 +74,7 @@ class Account(db.Model):
     type = db.Column(db.String(50), nullable=False) # Asset, Liability, Equity, Revenue, Expense
     description = db.Column(db.String(200))
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_now)
     
     # Hierarchy
     parent_id = db.Column(db.Integer, db.ForeignKey('account.id'), nullable=True)
@@ -36,13 +85,13 @@ class Account(db.Model):
 
 class JournalEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    date = db.Column(db.Date, nullable=False, default=_today, index=True)  # idx: reports filter by date
     description = db.Column(db.String(255), nullable=False)
-    reference = db.Column(db.String(100)) # Invoice #, Receipt #
+    reference = db.Column(db.String(100), index=True)  # idx: FY-CLOSE lookup
     posted = db.Column(db.Boolean, default=False)
     voided = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_now)
+    updated_at = db.Column(db.DateTime, default=_now, onupdate=_now)
 
     items = db.relationship('JournalItem', backref='entry', lazy=True, cascade="all, delete-orphan")
 
@@ -63,8 +112,8 @@ class JournalEntry(db.Model):
 
 class JournalItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entry.id'), nullable=False)
-    account_id = db.Column(db.Integer, db.ForeignKey('account.id'), nullable=False)
+    journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entry.id'), nullable=False, index=True)  # idx: parent JE lookup
+    account_id = db.Column(db.Integer, db.ForeignKey('account.id'), nullable=False, index=True)  # idx: all reports group/filter by account
     debit = db.Column(db.Numeric(12, 2), default=0.0)
     credit = db.Column(db.Numeric(12, 2), default=0.0)
     cost_center_id = db.Column(db.Integer, db.ForeignKey('cost_center.id'), nullable=True)
@@ -91,11 +140,11 @@ class Tax(db.Model):
 class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    action = db.Column(db.String(50), nullable=False) # CREATE, UPDATE, DELETE
-    model = db.Column(db.String(50), nullable=False) # JournalEntry, Account, etc.
+    action = db.Column(db.String(50), nullable=False)
+    model = db.Column(db.String(50), nullable=False)
     model_id = db.Column(db.Integer, nullable=True)
     details = db.Column(db.Text, nullable=True)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=_now, index=True)  # idx: audit log ordered by time
 
     user = db.relationship('User', backref='audit_logs')
 
@@ -106,8 +155,9 @@ class BankStatement(db.Model):
     end_date = db.Column(db.Date, nullable=False)
     starting_balance = db.Column(db.Numeric(12, 2), default=0.0)
     ending_balance = db.Column(db.Numeric(12, 2), default=0.0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_now)
     
+    account = db.relationship('Account', backref='bank_statements')
     transactions = db.relationship('BankTransaction', backref='statement', cascade="all, delete-orphan")
 
 class BankTransaction(db.Model):
@@ -134,7 +184,7 @@ class CompanySettings(db.Model):
     base_currency = db.Column(db.String(3), default="USD")
     fiscal_year_start = db.Column(db.Date)
     
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=_now, onupdate=_now)
 
 
 class Customer(db.Model):
@@ -144,7 +194,7 @@ class Customer(db.Model):
     phone = db.Column(db.String(20))
     address = db.Column(db.Text)
     currency = db.Column(db.String(3), default="USD")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_now)
     
     invoices = db.relationship('Invoice', backref='customer', lazy=True)
 
@@ -153,24 +203,40 @@ class Customer(db.Model):
 
 class Invoice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
-    date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    invoice_number = db.Column(db.String(30), unique=True, nullable=True, index=True)  # e.g. INV-2026-00001
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False, index=True)  # idx: customer invoice lookups
+    date = db.Column(db.Date, nullable=False, default=lambda: _now().date(), index=True)
     due_date = db.Column(db.Date, nullable=False)
-    status = db.Column(db.String(20), default='Draft') # Draft, Sent, Paid, Overdue, Cancelled
+    status = db.Column(db.String(20), default='Draft', index=True)  # Draft/Sent/Overdue/Paid/Cancelled
     total_amount = db.Column(db.Numeric(12, 2), default=0.0)
     tax_amount = db.Column(db.Numeric(12, 2), default=0.0)
+    amount_paid = db.Column(db.Numeric(12, 2), default=0.0)  # Running total of payments received
     currency = db.Column(db.String(3), default="USD")
-    
+
     # Link to GL
     journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entry.id'), nullable=True)
     journal_entry = db.relationship('JournalEntry')
-    
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
+    created_at = db.Column(db.DateTime, default=_now)
+
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade="all, delete-orphan")
 
+    @property
+    def balance_due(self):
+        """Remaining unpaid amount."""
+        return round(float(self.total_amount or 0) - float(self.amount_paid or 0), 2)
+
+    @property
+    def is_overdue(self):
+        from datetime import date as date_type
+        return (
+            self.status in ('Sent', 'Overdue')
+            and self.due_date is not None
+            and self.due_date < date_type.today()
+        )
+
     def __repr__(self):
-        return f'<Invoice #{self.id} - {self.status}>'
+        return f'<Invoice {self.invoice_number or self.id} - {self.status}>'
 
 class InvoiceItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -199,7 +265,7 @@ class Vendor(db.Model):
     phone = db.Column(db.String(20))
     address = db.Column(db.Text)
     currency = db.Column(db.String(3), default="USD")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_now)
     
     bills = db.relationship('Bill', backref='vendor', lazy=True)
 
@@ -208,24 +274,40 @@ class Vendor(db.Model):
 
 class Bill(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    vendor_id = db.Column(db.Integer, db.ForeignKey('vendor.id'), nullable=False)
-    date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    bill_number = db.Column(db.String(30), unique=True, nullable=True, index=True)  # e.g. BILL-2026-00001
+    vendor_id = db.Column(db.Integer, db.ForeignKey('vendor.id'), nullable=False, index=True)   # idx: vendor bill lookups
+    date = db.Column(db.Date, nullable=False, default=lambda: _now().date(), index=True)
     due_date = db.Column(db.Date, nullable=False)
-    status = db.Column(db.String(20), default='Open') # Open, Paid, Overdue, Cancelled
+    status = db.Column(db.String(20), default='Open', index=True)  # Open/Posted/Overdue/Paid/Cancelled
     total_amount = db.Column(db.Numeric(12, 2), default=0.0)
     tax_amount = db.Column(db.Numeric(12, 2), default=0.0)
+    amount_paid = db.Column(db.Numeric(12, 2), default=0.0)  # Running total of payments made
     currency = db.Column(db.String(3), default="USD")
-    
+
     # Link to GL (Accounts Payable)
     journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entry.id'), nullable=True)
     journal_entry = db.relationship('JournalEntry')
-    
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
+    created_at = db.Column(db.DateTime, default=_now)
+
     items = db.relationship('BillItem', backref='bill', lazy=True, cascade="all, delete-orphan")
 
+    @property
+    def balance_due(self):
+        """Remaining unpaid amount."""
+        return round(float(self.total_amount or 0) - float(self.amount_paid or 0), 2)
+
+    @property
+    def is_overdue(self):
+        from datetime import date as date_type
+        return (
+            self.status in ('Posted', 'Overdue')
+            and self.due_date is not None
+            and self.due_date < date_type.today()
+        )
+
     def __repr__(self):
-        return f'<Bill #{self.id} - {self.status}>'
+        return f'<Bill {self.bill_number or self.id} - {self.status}>'
 
 class BillItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -252,7 +334,7 @@ class Attachment(db.Model):
     journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entry.id'), nullable=False)
     filename = db.Column(db.String(255), nullable=False)
     filepath = db.Column(db.String(512), nullable=False)
-    upload_date = db.Column(db.DateTime, default=datetime.utcnow)
+    upload_date = db.Column(db.DateTime, default=_now)
     
     # Link back to JournalEntry
     journal_entry = db.relationship('JournalEntry', backref=db.backref('attachments', lazy=True, cascade="all, delete-orphan"))
@@ -272,7 +354,7 @@ class CostCenter(db.Model):
     description = db.Column(db.String(200))
     is_active = db.Column(db.Boolean, default=True)
     parent_id = db.Column(db.Integer, db.ForeignKey('cost_center.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_now)
 
     children = db.relationship('CostCenter', backref=db.backref('parent', remote_side='CostCenter.id'))
 
@@ -289,7 +371,7 @@ class TaxGroup(db.Model):
     name = db.Column(db.String(100), nullable=False)  # e.g. "GST 18%"
     description = db.Column(db.String(200))
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_now)
 
     items = db.relationship('TaxGroupItem', backref='group', lazy=True, cascade="all, delete-orphan",
                             order_by='TaxGroupItem.sequence')
@@ -332,8 +414,8 @@ class ExchangeRate(db.Model):
     from_currency = db.Column(db.String(3), nullable=False)
     to_currency = db.Column(db.String(3), nullable=False)
     rate = db.Column(db.Numeric(18, 8), nullable=False)  # e.g. 1 USD = 83.12 INR
-    effective_date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    effective_date = db.Column(db.Date, nullable=False, default=_now)
+    created_at = db.Column(db.DateTime, default=_now)
 
     def __repr__(self):
         return f'<ExchangeRate {self.from_currency}->{self.to_currency} @ {self.rate}>'
@@ -353,7 +435,7 @@ class Product(db.Model):
     selling_price = db.Column(db.Numeric(12, 2), default=0.0)
     valuation_method = db.Column(db.String(10), default='AVG')  # FIFO or AVG (Weighted Average)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_now)
 
     # GL Accounts
     inventory_account_id = db.Column(db.Integer, db.ForeignKey('account.id'), nullable=True)
@@ -372,7 +454,7 @@ class Warehouse(db.Model):
     name = db.Column(db.String(100), unique=True, nullable=False)
     location = db.Column(db.String(200))
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_now)
 
     def __repr__(self):
         return f'<Warehouse {self.name}>'
@@ -381,13 +463,13 @@ class StockEntry(db.Model):
     """Header for stock movements (Receipt, Issue, Transfer)."""
     id = db.Column(db.Integer, primary_key=True)
     entry_type = db.Column(db.String(20), nullable=False)  # Receipt, Issue, Transfer
-    date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    date = db.Column(db.Date, nullable=False, default=_today)
     reference = db.Column(db.String(100))
     notes = db.Column(db.Text)
     source_warehouse_id = db.Column(db.Integer, db.ForeignKey('warehouse.id'), nullable=True)
     target_warehouse_id = db.Column(db.Integer, db.ForeignKey('warehouse.id'), nullable=True)
     journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entry.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_now)
 
     source_warehouse = db.relationship('Warehouse', foreign_keys=[source_warehouse_id])
     target_warehouse = db.relationship('Warehouse', foreign_keys=[target_warehouse_id])
@@ -413,15 +495,15 @@ class StockEntryItem(db.Model):
 class StockLedgerEntry(db.Model):
     """Perpetual inventory ledger — one row per stock movement per product per warehouse."""
     id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
-    warehouse_id = db.Column(db.Integer, db.ForeignKey('warehouse.id'), nullable=False)
-    posting_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    qty_change = db.Column(db.Numeric(12, 3), nullable=False)  # +ve for in, -ve for out
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False, index=True)    # idx: stock balance queries
+    warehouse_id = db.Column(db.Integer, db.ForeignKey('warehouse.id'), nullable=False, index=True) # idx: per-warehouse balance
+    posting_date = db.Column(db.Date, nullable=False, default=_today, index=True)      # idx: date-range stock queries
+    qty_change = db.Column(db.Numeric(12, 3), nullable=False)
     valuation_rate = db.Column(db.Numeric(12, 2), default=0.0)
     balance_qty = db.Column(db.Numeric(12, 3), default=0.0)
     balance_value = db.Column(db.Numeric(14, 2), default=0.0)
     stock_entry_id = db.Column(db.Integer, db.ForeignKey('stock_entry.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_now)
 
     product = db.relationship('Product', backref='stock_ledger_entries')
     warehouse = db.relationship('Warehouse', backref='stock_ledger_entries')
@@ -447,7 +529,7 @@ class Employee(db.Model):
     bank_account = db.Column(db.String(50))
     is_active = db.Column(db.Boolean, default=True)
     salary_structure_id = db.Column(db.Integer, db.ForeignKey('salary_structure.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_now)
 
     salary_structure = db.relationship('SalaryStructure', backref='employees')
 
@@ -473,7 +555,7 @@ class SalaryStructure(db.Model):
     name = db.Column(db.String(100), unique=True, nullable=False)
     description = db.Column(db.String(200))
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_now)
 
     details = db.relationship('SalaryStructureDetail', backref='structure', lazy=True, cascade="all, delete-orphan")
 
@@ -499,13 +581,13 @@ class PayrollEntry(db.Model):
     """A payroll run for a given period."""
     id = db.Column(db.Integer, primary_key=True)
     period = db.Column(db.String(20), nullable=False)  # e.g. "2026-03"
-    run_date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    run_date = db.Column(db.Date, nullable=False, default=_now)
     total_gross = db.Column(db.Numeric(14, 2), default=0.0)
     total_deductions = db.Column(db.Numeric(14, 2), default=0.0)
     total_net = db.Column(db.Numeric(14, 2), default=0.0)
     status = db.Column(db.String(20), default='Draft')  # Draft, Posted
     journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entry.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_now)
 
     journal_entry = db.relationship('JournalEntry')
     payroll_items = db.relationship('PayrollItem', backref='payroll_entry', lazy=True, cascade="all, delete-orphan")
@@ -546,7 +628,7 @@ class FixedAsset(db.Model):
     status = db.Column(db.String(20), default='Active')  # Active, Disposed, Sold
     disposed_date = db.Column(db.Date, nullable=True)
     disposed_amount = db.Column(db.Numeric(14, 2), default=0.0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_now)
 
     # GL Accounts
     asset_account_id = db.Column(db.Integer, db.ForeignKey('account.id'), nullable=True)
@@ -582,7 +664,7 @@ class DepreciationSchedule(db.Model):
     depreciation_amount = db.Column(db.Numeric(14, 2), nullable=False)
     accumulated_depreciation = db.Column(db.Numeric(14, 2), default=0.0)
     journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entry.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=_now)
 
     journal_entry = db.relationship('JournalEntry')
 

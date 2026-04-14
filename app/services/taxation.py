@@ -29,7 +29,7 @@ class TaxationService:
 
     @staticmethod
     def delete_tax_group(group_id):
-        group = TaxGroup.query.get(group_id)
+        group = db.session.get(TaxGroup, group_id)
         if group:
             group.is_active = False
             db.session.commit()
@@ -43,7 +43,7 @@ class TaxationService:
         Returns a breakdown of each component tax for a given base amount.
         [{'tax_name': 'CGST', 'rate': 9.0, 'amount': 900.0, 'account_id': 5}, ...]
         """
-        group = TaxGroup.query.get(group_id)
+        group = db.session.get(TaxGroup, group_id)
         if not group:
             return []
 

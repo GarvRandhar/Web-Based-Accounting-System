@@ -3,12 +3,14 @@ from flask_login import login_required
 from app.models import Product, Warehouse, StockEntry, StockLedgerEntry, Account, db
 from app.services.inventory import InventoryService
 from app.services.audit import AuditService
+from app.decorators import accountant_or_admin_required
 
 inventory_bp = Blueprint('inventory', __name__, url_prefix='/inventory')
 
 
 @inventory_bp.route('/products', methods=['GET', 'POST'])
 @login_required
+@accountant_or_admin_required
 def products():
     if request.method == 'POST':
         try:
@@ -34,9 +36,10 @@ def products():
     expense_accounts = Account.query.filter_by(type='Expense').order_by(Account.code).all()
     revenue_accounts = Account.query.filter_by(type='Revenue').order_by(Account.code).all()
 
-    # Attach stock balance to each product
+    # Attach stock balance to each product via one grouped query.
+    balances = InventoryService.get_stock_balances_for_products([p.id for p in all_products])
     for p in all_products:
-        bal = InventoryService.get_stock_balance(p.id)
+        bal = balances.get(p.id, {'qty': 0.0, 'value': 0.0})
         p._stock_qty = bal['qty']
         p._stock_value = bal['value']
 
@@ -48,6 +51,7 @@ def products():
 
 @inventory_bp.route('/products/<int:id>/edit', methods=['POST'])
 @login_required
+@accountant_or_admin_required
 def edit_product(id):
     product = Product.query.get_or_404(id)
     product.name = request.form.get('name', product.name).strip()
@@ -62,6 +66,7 @@ def edit_product(id):
 
 @inventory_bp.route('/warehouses', methods=['GET', 'POST'])
 @login_required
+@accountant_or_admin_required
 def warehouses():
     if request.method == 'POST':
         try:
@@ -80,6 +85,7 @@ def warehouses():
 
 @inventory_bp.route('/stock-entry/new', methods=['GET', 'POST'])
 @login_required
+@accountant_or_admin_required
 def new_stock_entry():
     if request.method == 'POST':
         try:

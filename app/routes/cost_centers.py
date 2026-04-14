@@ -66,7 +66,7 @@ def report():
         data = CostCenterService.get_pl_by_cost_center(cc_id, start_date, end_date)
 
     centers = CostCenter.query.filter_by(is_active=True).order_by(CostCenter.code).all()
-    selected_center = CostCenter.query.get(cc_id) if cc_id else None
+    selected_center = db.session.get(CostCenter, cc_id) if cc_id else None
     return render_template('cost_centers/report.html', data=data, centers=centers,
                            selected_center=selected_center,
                            start_date=start or '', end_date=end or '')

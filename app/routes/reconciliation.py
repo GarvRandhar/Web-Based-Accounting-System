@@ -61,10 +61,14 @@ def upload():
 
         start_date = min(dates)
         end_date = max(dates)
-        
-        # Calculate balances (placeholder logic, usually user inputs this)
-        start_bal = 0.0
-        end_bal = sum(t['amount'] for t in transactions)
+
+        # Use user-supplied opening and closing balances (required for a real reconciliation)
+        try:
+            start_bal = float(request.form.get('start_balance', 0))
+            end_bal   = float(request.form.get('end_balance', 0))
+        except (TypeError, ValueError):
+            flash('Opening and closing balances must be valid numbers.', 'error')
+            return redirect(url_for('reconciliation.index'))
         
         stmt = ReconciliationService.create_statement(
             account_id=account_id,
@@ -99,6 +103,10 @@ def view(id):
 def match():
     bank_tx_id = request.form.get('bank_tx_id')
     journal_item_id = request.form.get('journal_item_id')
+
+    if not journal_item_id:
+        flash('Please select a ledger item to match against.', 'error')
+        return redirect(request.referrer)
     
     try:
         ReconciliationService.match_transaction(bank_tx_id, journal_item_id)
