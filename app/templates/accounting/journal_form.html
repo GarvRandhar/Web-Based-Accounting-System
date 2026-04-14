@@ -84,15 +84,15 @@
 
         tr.innerHTML = `
             <td>
-                <select name="items[${rowCount}][account_id]" class="form-control" required>
+                <select name="account_id[]" class="form-control" required>
                     ${options}
                 </select>
             </td>
             <td>
-                <input type="number" step="0.01" name="items[${rowCount}][debit]" class="form-control debit-input" placeholder="0.00" oninput="calculateTotals()">
+                <input type="number" step="0.01" name="debit[]" class="form-control debit-input" placeholder="0.00" oninput="calculateTotals()">
             </td>
             <td>
-                <input type="number" step="0.01" name="items[${rowCount}][credit]" class="form-control credit-input" placeholder="0.00" oninput="calculateTotals()">
+                <input type="number" step="0.01" name="credit[]" class="form-control credit-input" placeholder="0.00" oninput="calculateTotals()">
             </td>
             <td>
                 <button type="button" class="btn btn-danger" style="padding: 0.4rem;" onclick="removeRow(this)">x</button>

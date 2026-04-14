@@ -66,6 +66,25 @@
             </tbody>
         </table>
     </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 2rem;">
+        {% if pagination.has_prev %}
+        <a href="{{ url_for('accounting.list_accounts', page=pagination.prev_num, **request.args) }}" class="btn btn-secondary">← Previous</a>
+        {% else %}
+        <button class="btn btn-secondary" disabled>← Previous</button>
+        {% endif %}
+
+        <span style="padding: 0.5rem 1rem; color: var(--text-secondary);">Page {{ pagination.page }} of {{ pagination.pages }}</span>
+
+        {% if pagination.has_next %}
+        <a href="{{ url_for('accounting.list_accounts', page=pagination.next_num, **request.args) }}" class="btn btn-secondary">Next →</a>
+        {% else %}
+        <button class="btn btn-secondary" disabled>Next →</button>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
 
 <!-- Add Account Modal -->

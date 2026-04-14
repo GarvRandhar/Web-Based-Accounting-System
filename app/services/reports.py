@@ -1,246 +1,282 @@
 from app.models import Account, JournalItem, JournalEntry, db
-from sqlalchemy import func
+from sqlalchemy import func, case
 from datetime import datetime
 
+
 class ReportingService:
+
+    # ─────────────────────────────────────────────────────────────────────
+    # INTERNAL HELPERS — single-query aggregation by account
+    # ─────────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _aggregate_by_account(date_filter):
+        """
+        Returns a dict: { account_id: (total_debit, total_credit) }
+        for ALL accounts matching the supplied date filter expression.
+        This fires EXACTLY ONE SQL query regardless of COA size.
+        Voided entries are excluded — their reversing counterparts cancel them out
+        in the perpetual ledger, but we exclude both to keep gross balances clean.
+        """
+        rows = (
+            db.session.query(
+                JournalItem.account_id,
+                func.coalesce(func.sum(JournalItem.debit),  0).label('dr'),
+                func.coalesce(func.sum(JournalItem.credit), 0).label('cr'),
+            )
+            .join(JournalEntry, JournalEntry.id == JournalItem.journal_entry_id)
+            .filter(date_filter)
+            .filter(JournalEntry.voided == False)  # noqa: E712 — exclude voided entries
+            .group_by(JournalItem.account_id)
+            .all()
+        )
+        return {r.account_id: (float(r.dr), float(r.cr)) for r in rows}
+
+    # ─────────────────────────────────────────────────────────────────────
+    # BALANCE SHEET
+    # ─────────────────────────────────────────────────────────────────────
+
     @staticmethod
     def get_balance_sheet(as_of_date):
         """
-        Generates Balance Sheet data as of a specific date.
-        Assets = Liabilities + Equity
-        Equity includes current year Net Income (Retained Earnings).
+        Balance Sheet as of a date.  2 SQL queries total:
+          1. One aggregation covering every account up to as_of_date.
+          2. One Account lookup (already cached by SQLAlchemy identity map).
         """
-        def get_group_balance(acc_type):
-            # Sum (Dr - Cr) for Assets, (Cr - Dr) for others
-            # Filter by date <= as_of_date
-            
-            accounts = Account.query.filter_by(type=acc_type).all()
-            total = 0
+        totals = ReportingService._aggregate_by_account(
+            JournalEntry.date <= as_of_date
+        )
+
+        def build_section(acc_type, normal_side='debit'):
+            """normal_side='debit'  → Asset/Expense  (Dr balance positive)
+               normal_side='credit' → Liability/Equity/Revenue"""
+            accounts = Account.query.filter_by(type=acc_type, is_active=True).order_by(Account.code).all()
+            section_total = 0
             details = []
-            
             for acc in accounts:
-                # Sum items up to date
-                debits = db.session.query(func.sum(JournalItem.debit))\
-                    .join(JournalItem.entry)\
-                    .filter(JournalItem.account_id == acc.id)\
-                    .filter(JournalItem.entry.has(JournalItem.entry.property.mapper.class_.date <= as_of_date))\
-                    .scalar() or 0
+                dr, cr = totals.get(acc.id, (0, 0))
+                bal = (dr - cr) if normal_side == 'debit' else (cr - dr)
+                if abs(bal) < 0.005:
+                    continue
+                details.append({'code': acc.code, 'name': acc.name, 'balance': round(bal, 2)})
+                section_total += bal
+            return {'total': round(section_total, 2), 'accounts': details}
 
-                credits = db.session.query(func.sum(JournalItem.credit))\
-                    .join(JournalItem.entry)\
-                    .filter(JournalItem.account_id == acc.id)\
-                    .filter(JournalItem.entry.has(JournalItem.entry.property.mapper.class_.date <= as_of_date))\
-                    .scalar() or 0
+        assets      = build_section('Asset',     'debit')
+        liabilities = build_section('Liability', 'credit')
+        equity      = build_section('Equity',    'credit')
 
-                if acc_type == 'Asset':
-                    bal = debits - credits
-                else:
-                    bal = credits - debits
-                
-                if bal != 0:
-                    details.append({'code': acc.code, 'name': acc.name, 'balance': bal})
-                    total += bal
-            
-            return {'total': total, 'accounts': details}
+        # Retained Earnings = total Revenue − total Expense (up to date)
+        # Both are already in `totals` — just filter account types.
+        all_accounts = {a.id: a for a in Account.query.all()}
+        rev_net = exp_net = 0.0
+        for acc_id, (dr, cr) in totals.items():
+            acc = all_accounts.get(acc_id)
+            if acc is None:
+                continue
+            if acc.type == 'Revenue':
+                rev_net += cr - dr
+            elif acc.type == 'Expense':
+                exp_net += dr - cr
 
-        assets = get_group_balance('Asset')
-        liabilities = get_group_balance('Liability')
-        equity = get_group_balance('Equity')
-        
-        # Calculate Retained Earnings (Net Income over all time up to date)
-        # Revenue - Expenses
-        revenue_total = 0
-        expense_total = 0
-        
-        # We need to query ALL revenue/expense accounts up to this date to get correct Retained Earnings
-        # This is simplified. Real systems close books at year end.
-        # We'll just sum all Rev/Exp.
-        
-        rev_accounts = Account.query.filter_by(type='Revenue').all()
-        for acc in rev_accounts:
-            credits = db.session.query(func.sum(JournalItem.credit)).join(JournalItem.entry).filter(JournalItem.account_id==acc.id, JournalItem.entry.has(JournalItem.entry.property.mapper.class_.date <= as_of_date)).scalar() or 0
-            debits = db.session.query(func.sum(JournalItem.debit)).join(JournalItem.entry).filter(JournalItem.account_id==acc.id, JournalItem.entry.has(JournalItem.entry.property.mapper.class_.date <= as_of_date)).scalar() or 0
-            revenue_total += (credits - debits)
-
-        exp_accounts = Account.query.filter_by(type='Expense').all()
-        for acc in exp_accounts:
-            debits = db.session.query(func.sum(JournalItem.debit)).join(JournalItem.entry).filter(JournalItem.account_id==acc.id, JournalItem.entry.has(JournalItem.entry.property.mapper.class_.date <= as_of_date)).scalar() or 0
-            credits = db.session.query(func.sum(JournalItem.credit)).join(JournalItem.entry).filter(JournalItem.account_id==acc.id, JournalItem.entry.has(JournalItem.entry.property.mapper.class_.date <= as_of_date)).scalar() or 0
-            expense_total += (debits - credits)
-
-        net_income = revenue_total - expense_total
-        
-        # Add Net Income to Equity section as "Retained Earnings (Calculated)"
-        if net_income != 0:
-            equity['accounts'].append({'code': '9999', 'name': 'Retained Earnings (YTD)', 'balance': net_income})
-            equity['total'] += net_income
+        net_income = round(rev_net - exp_net, 2)
+        if abs(net_income) >= 0.01:
+            equity['accounts'].append({
+                'code': '9999', 'name': 'Retained Earnings (YTD)', 'balance': net_income
+            })
+            equity['total'] = round(equity['total'] + net_income, 2)
 
         return {
             'assets': assets,
             'liabilities': liabilities,
             'equity': equity,
-            'date': as_of_date
+            'date': as_of_date,
         }
+
+    # ─────────────────────────────────────────────────────────────────────
+    # PROFIT & LOSS
+    # ─────────────────────────────────────────────────────────────────────
 
     @staticmethod
     def get_profit_loss(start_date, end_date):
         """
-        Generates P&L for a period.
+        P&L for a date range.  1 SQL query total.
         """
-        def get_group_balance(acc_type):
-            accounts = Account.query.filter_by(type=acc_type).all()
-            total = 0
-            details = []
-            
-            for acc in accounts:
-                # Filter by date range
-                debits = db.session.query(func.sum(JournalItem.debit))\
-                    .join(JournalItem.entry)\
-                    .filter(JournalItem.account_id == acc.id)\
-                    .filter(JournalItem.entry.has(JournalItem.entry.property.mapper.class_.date >= start_date))\
-                    .filter(JournalItem.entry.has(JournalItem.entry.property.mapper.class_.date <= end_date))\
-                    .scalar() or 0
-                    
-                credits = db.session.query(func.sum(JournalItem.credit))\
-                    .join(JournalItem.entry)\
-                    .filter(JournalItem.account_id == acc.id)\
-                    .filter(JournalItem.entry.has(JournalItem.entry.property.mapper.class_.date >= start_date))\
-                    .filter(JournalItem.entry.has(JournalItem.entry.property.mapper.class_.date <= end_date))\
-                    .scalar() or 0
-                
-                if acc_type == 'Revenue':
-                    bal = credits - debits
-                else: # Expense
-                    bal = debits - credits
-                
-                if bal != 0:
-                    details.append({'code': acc.code, 'name': acc.name, 'balance': bal})
-                    total += bal
-            
-            return {'total': total, 'accounts': details}
+        totals = ReportingService._aggregate_by_account(
+            (JournalEntry.date >= start_date) & (JournalEntry.date <= end_date)
+        )
 
-        revenue = get_group_balance('Revenue')
-        expenses = get_group_balance('Expense')
-        
-        net_income = revenue['total'] - expenses['total']
-        
+        all_accounts = {a.id: a for a in Account.query.filter(
+            Account.type.in_(['Revenue', 'Expense'])
+        ).order_by(Account.code).all()}
+
+        revenue_details  = []
+        expense_details  = []
+        revenue_total = expense_total = 0.0
+
+        for acc_id, (dr, cr) in totals.items():
+            acc = all_accounts.get(acc_id)
+            if acc is None:
+                continue
+            if acc.type == 'Revenue':
+                bal = round(cr - dr, 2)
+                if abs(bal) < 0.005:
+                    continue
+                revenue_details.append({'code': acc.code, 'name': acc.name, 'balance': bal})
+                revenue_total += bal
+            elif acc.type == 'Expense':
+                bal = round(dr - cr, 2)
+                if abs(bal) < 0.005:
+                    continue
+                expense_details.append({'code': acc.code, 'name': acc.name, 'balance': bal})
+                expense_total += bal
+
+        # Sort by account code for consistent display
+        revenue_details.sort(key=lambda x: x['code'])
+        expense_details.sort(key=lambda x: x['code'])
+
         return {
-            'revenue': revenue,
-            'expenses': expenses,
-            'net_income': net_income,
+            'revenue':    {'total': round(revenue_total, 2), 'accounts': revenue_details},
+            'expenses':   {'total': round(expense_total, 2), 'accounts': expense_details},
+            'net_income': round(revenue_total - expense_total, 2),
             'start_date': start_date,
-            'end_date': end_date
+            'end_date':   end_date,
         }
+
+    # ─────────────────────────────────────────────────────────────────────
+    # TRIAL BALANCE
+    # ─────────────────────────────────────────────────────────────────────
 
     @staticmethod
     def get_trial_balance(as_of_date):
         """
-        Generates Trial Balance: List of all accounts with their debit/credit balance.
+        Trial Balance as of a date.  1 SQL query total.
         """
-        # Query all accounts with their journal items up to the date
-        accounts = Account.query.order_by(Account.code).all()
-        data = []
-        total_debit = 0
-        total_credit = 0
+        totals = ReportingService._aggregate_by_account(
+            JournalEntry.date <= as_of_date
+        )
 
-        for acc in accounts:
-            # Sum debits and credits
-            debits = db.session.query(func.sum(JournalItem.debit))\
-                .join(JournalEntry)\
-                .filter(JournalItem.account_id == acc.id)\
-                .filter(JournalEntry.date <= as_of_date).scalar() or 0
-            
-            credits = db.session.query(func.sum(JournalItem.credit))\
-                .join(JournalEntry)\
-                .filter(JournalItem.account_id == acc.id)\
-                .filter(JournalEntry.date <= as_of_date).scalar() or 0
-            
-            # Net balance
-            net = debits - credits
-            
-            if abs(net) < 0.01:
-                continue # Skip zero balance accounts
-            
-            row = {'code': acc.code, 'name': acc.name, 'debit': 0, 'credit': 0}
-            
-            # Formatting for Trial Balance
-            # Asset/Expense: Dr balance
-            # Liability/Equity/Revenue: Cr balance
+        # Load only accounts that have activity (keeps result set small)
+        active_ids = list(totals.keys())
+        accounts = {
+            a.id: a
+            for a in Account.query.filter(Account.id.in_(active_ids)).order_by(Account.code).all()
+        }
+
+        data = []
+        total_debit = total_credit = 0.0
+
+        for acc_id in sorted(accounts.keys(), key=lambda i: accounts[i].code):
+            acc = accounts[acc_id]
+            dr, cr = totals.get(acc_id, (0, 0))
+            net = dr - cr
+
+            if abs(net) < 0.005:
+                continue
+
+            row = {'code': acc.code, 'name': acc.name, 'type': acc.type, 'debit': 0, 'credit': 0}
             if net > 0:
-                row['debit'] = net
+                row['debit'] = round(net, 2)
                 total_debit += net
             else:
-                row['credit'] = abs(net)
+                row['credit'] = round(abs(net), 2)
                 total_credit += abs(net)
-            
+
             data.append(row)
 
         return {
-            'accounts': data,
-            'total_debit': total_debit,
-            'total_credit': total_credit,
-            'date': as_of_date
+            'accounts':     data,
+            'total_debit':  round(total_debit, 2),
+            'total_credit': round(total_credit, 2),
+            'date':         as_of_date,
         }
+
+    # ─────────────────────────────────────────────────────────────────────
+    # CASH FLOW
+    # ─────────────────────────────────────────────────────────────────────
 
     @staticmethod
     def get_cash_flow(start_date, end_date):
         """
-        Generates Statement of Cash Flows (Simplified Indirect Method)
+        Statement of Cash Flows (Direct method on Cash/Bank GL accounts).
+        Contra entries (Bank→Cash) are excluded to avoid double-counting.
+        3 SQL queries total regardless of data volume.
         """
-        # 1. Operating Activities
-        # Net Income
-        pl = ReportingService.get_profit_loss(start_date, end_date)
-        net_income = pl['net_income']
-        
-        # Adjustments would go here (Depreciation etc.)
-        
-        # Changes in Working Capital (Current Assets & Current Liabilities)
-        # Increase in AR (Asset) -> Negative Cash Flow
-        # Increase in AP (Liability) -> Positive Cash Flow
-        
-        # For this MVP, we will stick to a simpler "Direct-ish" view based on Bank Account movements
-        # Or just return Net Income as Operating Cash Flow for now since we lack detailed classification
-        
-        # Let's try a diff approach: Analysis of Cash GL Accounts
-        cash_accounts = Account.query.filter(Account.name.in_(['Cash', 'Bank'])).all()
-        cash_ids = [acc.id for acc in cash_accounts]
-        
-        # Inflows (Debits to Cash)
-        inflows = db.session.query(func.sum(JournalItem.debit))\
-            .join(JournalEntry)\
-            .filter(JournalItem.account_id.in_(cash_ids))\
-            .filter(JournalEntry.date >= start_date)\
-            .filter(JournalEntry.date <= end_date).scalar() or 0
-            
-        # Outflows (Credits to Cash)
-        outflows = db.session.query(func.sum(JournalItem.credit))\
-            .join(JournalEntry)\
-            .filter(JournalItem.account_id.in_(cash_ids))\
-            .filter(JournalEntry.date >= start_date)\
-            .filter(JournalEntry.date <= end_date).scalar() or 0
-            
-        net_change = inflows - outflows
-        
-        # Get start balance
-        start_bal_debit = db.session.query(func.sum(JournalItem.debit))\
-            .join(JournalEntry)\
-            .filter(JournalItem.account_id.in_(cash_ids))\
-            .filter(JournalEntry.date < start_date).scalar() or 0
-            
-        start_bal_credit = db.session.query(func.sum(JournalItem.credit))\
-            .join(JournalEntry)\
-            .filter(JournalItem.account_id.in_(cash_ids))\
-            .filter(JournalEntry.date < start_date).scalar() or 0
-            
-        starting_cash = start_bal_debit - start_bal_credit
-        ending_cash = starting_cash + net_change
-        
-        return {
-            'operating_activities': net_change, # Simplified: All cash entry is operating for now
-            'net_change': net_change,
-            'starting_balance': starting_cash,
-            'ending_balance': ending_cash,
-            'start_date': start_date,
-            'end_date': end_date
-        }
+        cash_accounts = Account.query.filter(
+            (Account.name.in_(['Cash', 'Bank'])) | (Account.code.in_(['1010', '1020']))
+        ).all()
+        cash_ids = set(acc.id for acc in cash_accounts)
 
+        if not cash_ids:
+            return {
+                'operating_activities': 0,
+                'net_change': 0,
+                'starting_balance': 0,
+                'ending_balance': 0,
+                'start_date': start_date,
+                'end_date': end_date,
+            }
+
+        # ── 1. All JournalEntry IDs that touch a cash account in the period ──
+        # We also eagerly load items to avoid per-entry lazy loading (N+1)
+        cash_entries = (
+            db.session.query(JournalEntry)
+            .join(JournalItem, JournalItem.journal_entry_id == JournalEntry.id)
+            .filter(
+                JournalItem.account_id.in_(cash_ids),
+                JournalEntry.date >= start_date,
+                JournalEntry.date <= end_date,
+            )
+            .distinct()
+            .all()
+        )
+
+        # Pre-load ALL items for those entries in a single query to avoid lazy N+1
+        entry_ids = [e.id for e in cash_entries]
+        if entry_ids:
+            all_items = (
+                db.session.query(JournalItem)
+                .filter(JournalItem.journal_entry_id.in_(entry_ids))
+                .all()
+            )
+            # Group items by entry_id
+            items_by_entry: dict[int, list] = {}
+            for item in all_items:
+                items_by_entry.setdefault(item.journal_entry_id, []).append(item)
+        else:
+            items_by_entry = {}
+
+        net_change = 0.0
+        for entry in cash_entries:
+            entry_items = items_by_entry.get(entry.id, [])
+            # Contra: every item is a cash account → skip (e.g. Bank→Petty Cash transfer)
+            if all(item.account_id in cash_ids for item in entry_items):
+                continue
+            for item in entry_items:
+                if item.account_id in cash_ids:
+                    net_change += float(item.debit) - float(item.credit)
+
+        # ── 2. Opening cash balance (before start_date) ──
+        ob_row = (
+            db.session.query(
+                func.coalesce(func.sum(JournalItem.debit),  0).label('dr'),
+                func.coalesce(func.sum(JournalItem.credit), 0).label('cr'),
+            )
+            .join(JournalEntry, JournalEntry.id == JournalItem.journal_entry_id)
+            .filter(
+                JournalItem.account_id.in_(cash_ids),
+                JournalEntry.date < start_date,
+            )
+            .one()
+        )
+        starting_cash = float(ob_row.dr) - float(ob_row.cr)
+        ending_cash   = starting_cash + net_change
+
+        return {
+            'operating_activities': round(net_change, 2),
+            'net_change':           round(net_change, 2),
+            'starting_balance':     round(starting_cash, 2),
+            'ending_balance':       round(ending_cash, 2),
+            'start_date':           start_date,
+            'end_date':             end_date,
+        }

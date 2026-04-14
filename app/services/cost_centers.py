@@ -16,7 +16,7 @@ class CostCenterService:
 
     @staticmethod
     def update_cost_center(cc_id, **kwargs):
-        cc = CostCenter.query.get(cc_id)
+        cc = db.session.get(CostCenter, cc_id)
         if not cc:
             raise ValueError("Cost center not found.")
         for k, v in kwargs.items():
@@ -27,7 +27,7 @@ class CostCenterService:
 
     @staticmethod
     def deactivate_cost_center(cc_id):
-        cc = CostCenter.query.get(cc_id)
+        cc = db.session.get(CostCenter, cc_id)
         if cc:
             cc.is_active = False
             db.session.commit()

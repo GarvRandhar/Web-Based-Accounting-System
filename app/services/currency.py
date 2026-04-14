@@ -1,7 +1,7 @@
 from app.extensions import db
 from app.models import Currency, ExchangeRate, CompanySettings
 from app.services.audit import AuditService
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class CurrencyService:
@@ -20,7 +20,7 @@ class CurrencyService:
             from_currency=from_currency.upper(),
             to_currency=to_currency.upper(),
             rate=rate,
-            effective_date=effective_date or datetime.utcnow().date()
+            effective_date=effective_date or datetime.now(timezone.utc).date()
         )
         db.session.add(er)
         db.session.commit()
@@ -36,7 +36,7 @@ class CurrencyService:
         if from_currency == to_currency:
             return 1.0
 
-        as_of = as_of_date or datetime.utcnow().date()
+        as_of = as_of_date or datetime.now(timezone.utc).date()
         rate = ExchangeRate.query.filter_by(
             from_currency=from_currency.upper(),
             to_currency=to_currency.upper()

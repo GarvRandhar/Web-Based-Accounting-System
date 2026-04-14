@@ -67,10 +67,22 @@ export function AppSidebar({
             matchKey: "ar",
         },
         {
+            label: "AR Aging Report",
+            href: navUrls.ar_aging || "/ar/aging",
+            icon: <BarChart3 className="text-neutral-300 h-5 w-5 flex-shrink-0" />,
+            matchKey: "ar.aging_report",
+        },
+        {
             label: "Bills",
             href: navUrls.bills || "/ap/bills",
             icon: <Receipt className="text-neutral-300 h-5 w-5 flex-shrink-0" />,
             matchKey: "ap.bills",
+        },
+        {
+            label: "AP Aging Report",
+            href: navUrls.ap_aging || "/ap/aging",
+            icon: <BarChart3 className="text-neutral-300 h-5 w-5 flex-shrink-0" />,
+            matchKey: "ap.aging_report",
         },
         {
             label: "Customers",

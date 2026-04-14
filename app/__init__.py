@@ -1,11 +1,13 @@
 from flask import Flask
 from config import config
-from .extensions import db
+from .extensions import db, csrf, bcrypt, limiter
 import os
 
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'txt'}
 
 def create_app(config_name='default'):
+    if not config_name:
+        config_name = 'default'
     app = Flask(__name__)
     app.config.from_object(config[config_name])
     
@@ -15,10 +17,11 @@ def create_app(config_name='default'):
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
     db.init_app(app)
+    bcrypt.init_app(app)
+    limiter.init_app(app)
 
     # CSRF Protection
-    from flask_wtf.csrf import CSRFProtect
-    csrf = CSRFProtect(app)
+    csrf.init_app(app)
     
     from flask_login import LoginManager
     login_manager = LoginManager()
@@ -28,7 +31,7 @@ def create_app(config_name='default'):
     from .models import User
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
+        return db.session.get(User, int(user_id))
 
     # Register Blueprints
     from .routes.main import main_bp
@@ -45,6 +48,10 @@ def create_app(config_name='default'):
 
     from .routes.admin import admin_bp
     app.register_blueprint(admin_bp)
+
+    from .routes.api_admin import api_admin_bp
+    app.register_blueprint(api_admin_bp)
+    # NOTE: CSRF exemption is now applied per-route in api_admin.py, not blueprint-wide.
 
     from .routes.reconciliation import reconciliation_bp
     app.register_blueprint(reconciliation_bp)
@@ -75,6 +82,38 @@ def create_app(config_name='default'):
 
     from .routes.assets import assets_bp
     app.register_blueprint(assets_bp)
+
+    @app.before_request
+    def enforce_viewer_readonly():
+        from flask import request, abort
+        from flask_login import current_user
+
+        if not current_user.is_authenticated:
+            return None
+
+        role = (current_user.role or '').lower()
+        if role != 'viewer':
+            return None
+
+        safe_methods = {'GET', 'HEAD', 'OPTIONS'}
+        if request.method in safe_methods:
+            return None
+
+        allowed_viewer_write_endpoints = {
+            'auth.logout',
+            'auth.change_password',
+            'auth.change_password_page',
+        }
+        if request.endpoint in allowed_viewer_write_endpoints:
+            return None
+
+        abort(403)
+
+    @app.before_request
+    def refresh_session():
+        from flask import session
+        session.permanent = True
+        session.modified = True
 
     # Context Processor to make company settings available globally
     from .models import CompanySettings

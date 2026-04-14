@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}AP Aging Report{% endblock %}
+{% block page_title %}AP Aging Report{% endblock %}
+
+{% block content %}
+<div class="card">
+    <!-- Header & Date Picker -->
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:2rem; border-bottom:1px solid var(--border-color); padding-bottom:1.5rem;">
+        <div>
+            <h2 style="margin-bottom:0.25rem;">Accounts Payable Aging</h2>
+            <p style="color:var(--text-secondary);">Outstanding bills grouped by overdue bucket — as of {{ data.as_of_date.strftime('%B %d, %Y') }}</p>
+        </div>
+        <form method="GET" style="display:flex; gap:0.5rem; align-items:center;">
+            <label style="font-size:0.875rem; color:var(--text-secondary);">As Of</label>
+            <input type="date" name="as_of_date" value="{{ as_of_date_str }}"
+                   class="form-control" style="width:auto;">
+            <button type="submit" class="btn btn-primary">Refresh</button>
+            <a href="{{ url_for('ar.ar_aging') }}" class="btn btn-secondary">← AR Aging</a>
+        </form>
+    </div>
+
+    {% if not data.rows %}
+    <div style="text-align:center; padding:4rem; color:var(--text-secondary);">
+        <div style="font-size:3rem; margin-bottom:1rem;">✅</div>
+        <h3>No outstanding payables</h3>
+        <p>All bills are current or fully paid as of {{ data.as_of_date.strftime('%B %d, %Y') }}.</p>
+    </div>
+    {% else %}
+
+    <!-- Summary Cards -->
+    <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:1rem; margin-bottom:2rem;">
+        {% set buckets = [
+            ('current',     'Current',     '#10b981', '#d1fae5'),
+            ('days_1_30',   '1–30 Days',   '#f59e0b', '#fef3c7'),
+            ('days_31_60',  '31–60 Days',  '#f97316', '#ffedd5'),
+            ('days_61_90',  '61–90 Days',  '#ef4444', '#fee2e2'),
+            ('days_91_plus','91+ Days',    '#7c3aed', '#ede9fe'),
+        ] %}
+        {% for key, label, color, bg in buckets %}
+        <div style="background:{{ bg }}; border-radius:0.75rem; padding:1.25rem; text-align:center;">
+            <div style="font-size:0.75rem; font-weight:600; color:{{ color }}; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem;">{{ label }}</div>
+            <div style="font-size:1.5rem; font-weight:700; color:{{ color }};">
+                {{ company_settings.currency_symbol }}{{ "%.2f"|format(data.totals[key]) }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Grand Total Bar -->
+    <div style="background:var(--surface-color); border:1px solid var(--border-color); border-radius:0.5rem; padding:1rem 1.5rem; margin-bottom:2rem; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-weight:600; font-size:1.1rem;">Total Outstanding AP</span>
+        <span style="font-size:1.5rem; font-weight:700; color:#ef4444;">
+            {{ company_settings.currency_symbol }}{{ "%.2f"|format(data.totals.total) }}
+        </span>
+    </div>
+
+    <!-- Detail Table -->
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Vendor</th>
+                <th class="text-right" style="color:#10b981;">Current</th>
+                <th class="text-right" style="color:#f59e0b;">1–30 Days</th>
+                <th class="text-right" style="color:#f97316;">31–60 Days</th>
+                <th class="text-right" style="color:#ef4444;">61–90 Days</th>
+                <th class="text-right" style="color:#7c3aed;">91+ Days</th>
+                <th class="text-right">Total</th>
+                <th>Bills</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in data.rows %}
+            <tr>
+                <td style="font-weight:500;">{{ row.vendor.name }}</td>
+                <td class="text-right">
+                    {% if row.current > 0 %}
+                    <span style="color:#10b981;">{{ company_settings.currency_symbol }}{{ "%.2f"|format(row.current) }}</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td class="text-right">
+                    {% if row.days_1_30 > 0 %}
+                    <span style="color:#f59e0b;">{{ company_settings.currency_symbol }}{{ "%.2f"|format(row.days_1_30) }}</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td class="text-right">
+                    {% if row.days_31_60 > 0 %}
+                    <span style="color:#f97316;">{{ company_settings.currency_symbol }}{{ "%.2f"|format(row.days_31_60) }}</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td class="text-right">
+                    {% if row.days_61_90 > 0 %}
+                    <span style="color:#ef4444;">{{ company_settings.currency_symbol }}{{ "%.2f"|format(row.days_61_90) }}</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td class="text-right">
+                    {% if row.days_91_plus > 0 %}
+                    <span style="color:#7c3aed; font-weight:600;">{{ company_settings.currency_symbol }}{{ "%.2f"|format(row.days_91_plus) }}</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td class="text-right" style="font-weight:700;">
+                    {{ company_settings.currency_symbol }}{{ "%.2f"|format(row.total) }}
+                </td>
+                <td>
+                    {% for bill in row.bills %}
+                    <div style="font-size:0.8rem; margin-bottom:0.2rem;">
+                        <span style="color:var(--primary-color); font-weight:500;">{{ bill.bill_number }}</span>
+                        — {{ company_settings.currency_symbol }}{{ "%.2f"|format(bill.balance) }}
+                        <span style="color:var(--text-secondary);">({{ bill.due_date.strftime('%b %d') }}
+                        {% if bill.days_overdue > 0 %}
+                        · <span style="color:#ef4444;">{{ bill.days_overdue }}d overdue</span>
+                        {% else %}
+                        · <span style="color:#10b981;">current</span>
+                        {% endif %})</span>
+                    </div>
+                    {% endfor %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr style="border-top:2px solid var(--border-color); font-weight:700; background:var(--surface-color);">
+                <td>TOTAL</td>
+                <td class="text-right" style="color:#10b981;">{{ company_settings.currency_symbol }}{{ "%.2f"|format(data.totals.current) }}</td>
+                <td class="text-right" style="color:#f59e0b;">{{ company_settings.currency_symbol }}{{ "%.2f"|format(data.totals.days_1_30) }}</td>
+                <td class="text-right" style="color:#f97316;">{{ company_settings.currency_symbol }}{{ "%.2f"|format(data.totals.days_31_60) }}</td>
+                <td class="text-right" style="color:#ef4444;">{{ company_settings.currency_symbol }}{{ "%.2f"|format(data.totals.days_61_90) }}</td>
+                <td class="text-right" style="color:#7c3aed;">{{ company_settings.currency_symbol }}{{ "%.2f"|format(data.totals.days_91_plus) }}</td>
+                <td class="text-right">{{ company_settings.currency_symbol }}{{ "%.2f"|format(data.totals.total) }}</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+    {% endif %}
+</div>
+{% endblock %}

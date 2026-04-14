@@ -2,20 +2,38 @@ from app.extensions import db
 from app.models import Account, JournalEntry, JournalItem, Tax
 from app.services.audit import AuditService
 from sqlalchemy import func, text
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from dateutil import parser
 
 class AccountingService:
+    @staticmethod
+    def _get_last_closed_date():
+        last_close = JournalEntry.query.filter_by(reference='FY-CLOSE').order_by(JournalEntry.date.desc()).first()
+        if last_close:
+            return last_close.date.date() if hasattr(last_close.date, 'date') else last_close.date
+        return None
+
     @staticmethod
     def create_journal_entry(date, description, items, reference=None):
         """
         Creates a new Journal Entry with multiple items.
         items: list of dicts {'account_id': int, 'debit': float, 'credit': float}
         """
-        # Validate balance
-        total_debit = sum(item.get('debit', 0) for item in items)
-        total_credit = sum(item.get('credit', 0) for item in items)
+        # Historical Integrity Check
+        last_closed = AccountingService._get_last_closed_date()
+        entry_date = date.date() if hasattr(date, 'date') else date
+        if isinstance(entry_date, str):
+            entry_date = parser.parse(entry_date).date()
+            
+        if last_closed and reference != 'FY-CLOSE' and entry_date <= last_closed:
+            raise ValueError(f"Cannot create or modify journal entries on or before a closed fiscal date ({last_closed}).")
+            
+        # Validate balance using precise Decimal matching
+        total_debit = sum(Decimal(str(item.get('debit', 0))) for item in items)
+        total_credit = sum(Decimal(str(item.get('credit', 0))) for item in items)
         
-        if abs(total_debit - total_credit) > 0.01:
+        if total_debit != total_credit:
             raise ValueError(f"Transaction is not balanced: Debits {total_debit} != Credits {total_credit}")
 
         entry = JournalEntry(
@@ -52,24 +70,18 @@ class AccountingService:
         """Calculates totals for Assets, Liabilities, Equity, and Income."""
         
         def get_type_balance(acc_type):
-            # For Asset/Expense: Dr - Cr
-            # For Liability/Equity/Revenue: Cr - Dr
-            # But here we just sum Dr and Cr and calculate based on type.
+            result = db.session.query(
+                func.sum(JournalItem.debit).label('total_debit'),
+                func.sum(JournalItem.credit).label('total_credit')
+            ).join(Account).filter(Account.type == acc_type).first()
             
-            # Simple query: Join Account and JournalItem
-            # This is not optimized but works for small app.
+            debits = Decimal(str(result.total_debit or 0)) if result else Decimal(0)
+            credits = Decimal(str(result.total_credit or 0)) if result else Decimal(0)
             
-            accounts = Account.query.filter_by(type=acc_type).all()
-            total = 0
-            for acc in accounts:
-                debits = db.session.query(func.sum(JournalItem.debit)).filter_by(account_id=acc.id).scalar() or 0
-                credits = db.session.query(func.sum(JournalItem.credit)).filter_by(account_id=acc.id).scalar() or 0
-                
-                if acc_type in ['Asset', 'Expense']:
-                    total += (debits - credits)
-                else:
-                    total += (credits - debits)
-            return total
+            if acc_type in ['Asset', 'Expense']:
+                return debits - credits
+            else:
+                return credits - debits
 
         assets = get_type_balance('Asset')
         liabilities = get_type_balance('Liability')
@@ -244,11 +256,17 @@ class AccountingService:
     @staticmethod
     def void_journal_entry(entry_id):
         """Voids a posted journal entry by creating a reversing entry."""
-        entry = JournalEntry.query.get(entry_id)
+        entry = db.session.get(JournalEntry, entry_id)
         if not entry:
             raise ValueError("Journal entry not found.")
         if entry.voided:
             raise ValueError("Journal entry is already voided.")
+            
+        # Historical Integrity Check
+        last_closed = AccountingService._get_last_closed_date()
+        entry_date = entry.date.date() if hasattr(entry.date, 'date') else entry.date
+        if last_closed and entry_date <= last_closed:
+            raise ValueError(f"Cannot void journal entries on or before a closed fiscal date ({last_closed}).")
         
         # Create reversing entry (swap debits and credits)
         reversing_items = []
@@ -260,7 +278,7 @@ class AccountingService:
             })
         
         reversing_entry = JournalEntry(
-            date=datetime.utcnow(),
+            date=datetime.now(timezone.utc),
             description=f"VOID: {entry.description}",
             reference=f"VOID-{entry.id}",
             posted=True,
@@ -300,37 +318,57 @@ class AccountingService:
         retained_earnings = Account.query.filter_by(code='3020').first()
         if not retained_earnings:
             raise ValueError("Retained Earnings account (3020) not found. Cannot close fiscal year.")
+            
+        existing_close = JournalEntry.query.filter_by(reference=f"FY-CLOSE-{year_end_date.strftime('%Y')}").first()
+        if existing_close:
+            raise ValueError(f"Fiscal year {year_end_date.strftime('%Y')} is already closed.")
         
         closing_items = []
         net_income = 0
         
         # Zero out Revenue accounts (normal credit balance → debit to close)
-        revenue_accounts = Account.query.filter_by(type='Revenue').all()
-        for acc in revenue_accounts:
-            debits = db.session.query(func.sum(JournalItem.debit)).filter_by(account_id=acc.id).scalar() or 0
-            credits = db.session.query(func.sum(JournalItem.credit)).filter_by(account_id=acc.id).scalar() or 0
-            balance = float(credits) - float(debits)
-            if abs(balance) > 0.01:
+        revenue_balances = db.session.query(
+            JournalItem.account_id,
+            func.sum(JournalItem.debit).label('total_debit'),
+            func.sum(JournalItem.credit).label('total_credit')
+        ).join(JournalEntry).join(Account).filter(
+            Account.type == 'Revenue',
+            JournalEntry.date <= year_end_date
+        ).group_by(JournalItem.account_id).all()
+
+        for acc_id, debits, credits in revenue_balances:
+            debits_dec = Decimal(str(debits or 0))
+            credits_dec = Decimal(str(credits or 0))
+            balance = credits_dec - debits_dec
+            if balance != 0:
                 closing_items.append({
-                    'account_id': acc.id,
-                    'debit': balance if balance > 0 else 0,
-                    'credit': abs(balance) if balance < 0 else 0
+                    'account_id': acc_id,
+                    'debit': float(balance) if balance > 0 else 0,
+                    'credit': float(abs(balance)) if balance < 0 else 0
                 })
-                net_income += balance
+                net_income += float(balance)
         
         # Zero out Expense accounts (normal debit balance → credit to close)
-        expense_accounts = Account.query.filter_by(type='Expense').all()
-        for acc in expense_accounts:
-            debits = db.session.query(func.sum(JournalItem.debit)).filter_by(account_id=acc.id).scalar() or 0
-            credits = db.session.query(func.sum(JournalItem.credit)).filter_by(account_id=acc.id).scalar() or 0
-            balance = float(debits) - float(credits)
-            if abs(balance) > 0.01:
+        expense_balances = db.session.query(
+            JournalItem.account_id,
+            func.sum(JournalItem.debit).label('total_debit'),
+            func.sum(JournalItem.credit).label('total_credit')
+        ).join(JournalEntry).join(Account).filter(
+            Account.type == 'Expense',
+            JournalEntry.date <= year_end_date
+        ).group_by(JournalItem.account_id).all()
+
+        for acc_id, debits, credits in expense_balances:
+            debits_dec = Decimal(str(debits or 0))
+            credits_dec = Decimal(str(credits or 0))
+            balance = debits_dec - credits_dec
+            if balance != 0:
                 closing_items.append({
-                    'account_id': acc.id,
+                    'account_id': acc_id,
                     'debit': 0,
-                    'credit': balance if balance > 0 else 0
+                    'credit': float(balance) if balance > 0 else 0
                 })
-                net_income -= balance
+                net_income -= float(balance)
         
         if not closing_items:
             raise ValueError("No revenue or expense balances to close.")
@@ -347,7 +385,7 @@ class AccountingService:
         entry = JournalEntry(
             date=year_end_date,
             description=f"Fiscal Year Closing - {year_end_date.strftime('%Y-%m-%d')}",
-            reference="FY-CLOSE",
+            reference=f"FY-CLOSE-{year_end_date.strftime('%Y')}",
             posted=True
         )
         db.session.add(entry)

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel - User Management{% endblock %}
+{% block page_title %}Admin Panel{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 1.5rem;">
+    <h2 style="font-size: 1.25rem; margin-bottom: 0.5rem;">Invite New User</h2>
+    <p style="color: var(--text-secondary); margin-bottom: 1rem;">Send an invitation with a generated temporary password.</p>
+
+    <form id="inviteForm" style="display: grid; grid-template-columns: 2fr 1fr auto; gap: 0.75rem; align-items: end;">
+        <div>
+            <label>Email</label>
+            <input type="email" id="inviteEmail" class="form-control" placeholder="user@example.com" required>
+        </div>
+        <div>
+            <label>Role</label>
+            <select id="inviteRole" class="form-control" required>
+                <option value="viewer">viewer</option>
+                <option value="accountant">accountant</option>
+                <option value="admin">admin</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Send Invite</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2 style="font-size: 1.25rem; margin-bottom: 1rem;">Users</h2>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Invited Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="usersTableBody">
+            {% for user in users %}
+            <tr data-user-id="{{ user.id }}">
+                <td>{{ user.email }}</td>
+                <td>{{ user.role }}</td>
+                <td>{{ user.status }}</td>
+                <td>{{ user.invited_at.strftime('%Y-%m-%d %H:%M') if user.invited_at else '-' }}</td>
+                <td style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-sm btn-secondary action-resend" data-user-id="{{ user.id }}">Resend</button>
+                    <button class="btn btn-sm btn-danger action-delete" data-user-id="{{ user.id }}">Delete</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+async function refreshUsers() {
+    const response = await fetch('/api/admin/users');
+    const payload = await response.json();
+    const tbody = document.getElementById('usersTableBody');
+    tbody.innerHTML = '';
+
+    payload.users.forEach((user) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${user.email}</td>
+            <td>${user.role}</td>
+            <td>${user.status}</td>
+            <td>${user.invitedAt ? new Date(user.invitedAt).toLocaleString() : '-'}</td>
+            <td style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-sm btn-secondary action-resend" data-user-id="${user.id}">Resend</button>
+                <button class="btn btn-sm btn-danger action-delete" data-user-id="${user.id}">Delete</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+document.getElementById('usersTableBody').addEventListener('click', async (event) => {
+    const resendButton = event.target.closest('.action-resend');
+    if (resendButton) {
+        const userId = Number(resendButton.dataset.userId);
+        await resendInvite(userId);
+        return;
+    }
+
+    const deleteButton = event.target.closest('.action-delete');
+    if (deleteButton) {
+        const userId = Number(deleteButton.dataset.userId);
+        await deleteUser(userId);
+    }
+});
+
+document.getElementById('inviteForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const email = document.getElementById('inviteEmail').value.trim();
+    const role = document.getElementById('inviteRole').value;
+
+    const response = await fetch('/api/admin/invite', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email, role})
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+        alert(payload.error || 'Failed to send invitation.');
+        return;
+    }
+
+    alert('Invitation sent successfully.');
+    document.getElementById('inviteEmail').value = '';
+    await refreshUsers();
+});
+
+async function resendInvite(userId) {
+    const response = await fetch(`/api/admin/resend-invite/${userId}`, {method: 'POST'});
+    const payload = await response.json();
+    if (!response.ok) {
+        alert(payload.error || 'Failed to resend invitation.');
+        return;
+    }
+    alert('Invitation resent.');
+    await refreshUsers();
+}
+
+async function deleteUser(userId) {
+    if (!confirm('Delete this user?')) return;
+
+    const response = await fetch(`/api/admin/users/${userId}`, {method: 'DELETE'});
+    const payload = await response.json();
+    if (!response.ok) {
+        alert(payload.error || 'Failed to delete user.');
+        return;
+    }
+
+    await refreshUsers();
+}
+</script>
+{% endblock %}

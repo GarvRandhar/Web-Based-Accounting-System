@@ -69,9 +69,9 @@ def post_depreciation(id):
 @login_required
 def post_all_depreciation(id):
     """Post all un-posted depreciation schedules up to today."""
-    from datetime import datetime
+    from datetime import datetime, timezone
     asset = FixedAsset.query.get_or_404(id)
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     count = 0
     for schedule in asset.schedules:
         if not schedule.journal_entry_id and schedule.schedule_date <= today:

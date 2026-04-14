@@ -49,11 +49,19 @@ class ReconciliationService:
     @staticmethod
     def match_transaction(bank_tx_id, journal_item_id):
         """Link a bank transaction to a journal item"""
-        bt = BankTransaction.query.get(bank_tx_id)
-        ji = JournalItem.query.get(journal_item_id)
+        bt = db.session.get(BankTransaction, bank_tx_id)
+        ji = db.session.get(JournalItem, journal_item_id)
         
         if not bt or not ji:
             raise ValueError("Invalid ID")
+
+        # Cross-account validation: the ledger item must belong to the same GL account
+        # as the bank statement being reconciled.
+        if ji.account_id != bt.statement.account_id:
+            raise ValueError(
+                "Cannot match: the selected ledger item belongs to a different GL account "
+                "than this bank statement."
+            )
             
         # Validate amounts match (allowing for small difference if we wanted, but strict for now)
         # Bank amount: +Deposit, -Withdrawal
