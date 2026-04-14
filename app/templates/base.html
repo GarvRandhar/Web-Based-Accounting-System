@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Dashboard{% endblock %} — {{ company_settings.company_name if company_settings else
+        'AcctPro' }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='react/sidebar.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module" src="{{ url_for('static', filename='react/sidebar.js') }}"></script>
+</head>
+
+<body class="dark">
+    {% if current_user.is_authenticated %}
+    <div class="app-container">
+        <div id="react-sidebar-root" class="tw-root"
+            data-company-name="{{ company_settings.company_name if company_settings else 'AcctPro' }}"
+            data-current-endpoint="{{ request.endpoint }}"
+            data-is-admin="{{ 'true' if (current_user.role or '').lower() == 'admin' else 'false' }}"
+            data-user-name="{{ current_user.name or current_user.username }}"
+            data-url-dashboard="{{ url_for('main.dashboard') }}"
+            data-url-journals="{{ url_for('accounting.list_journals') }}"
+            data-url-accounts="{{ url_for('accounting.list_accounts') }}"
+            data-url-invoices="{{ url_for('ar.invoices') }}" data-url-bills="{{ url_for('ap.bills') }}"
+            data-url-ar-aging="{{ url_for('ar.ar_aging') }}" data-url-ap-aging="{{ url_for('ap.ap_aging') }}"
+            data-url-customers="{{ url_for('ar.customers') }}" data-url-vendors="{{ url_for('ap.vendors') }}"
+            data-url-reports="{{ url_for('reports.index') }}"
+            data-url-reconciliation="{{ url_for('reconciliation.index') }}"
+            data-url-audit-log="{{ url_for('admin.audit_log') }}" data-url-settings="{{ url_for('settings.index') }}"
+            data-url-products="{{ url_for('inventory.products') }}"
+            data-url-warehouses="{{ url_for('inventory.warehouses') }}"
+            data-url-stock-entry="{{ url_for('inventory.new_stock_entry') }}"
+            data-url-stock-ledger="{{ url_for('inventory.stock_ledger') }}"
+            data-url-tax-groups="{{ url_for('taxation.index') }}"
+            data-url-cost-centers="{{ url_for('cost_centers.index') }}"
+            data-url-cost-center-report="{{ url_for('cost_centers.report') }}"
+            data-url-currencies="{{ url_for('currency.index') }}"
+            data-url-employees="{{ url_for('payroll.employees') }}"
+            data-url-salary-components="{{ url_for('payroll.components') }}"
+            data-url-salary-structures="{{ url_for('payroll.salary_structures') }}"
+            data-url-payroll-process="{{ url_for('payroll.process') }}"
+            data-url-assets="{{ url_for('assets.index') }}"
+            data-url-new-asset="{{ url_for('assets.new_asset') }}"
+            data-url-logout="{{ url_for('auth.logout') }}"></div>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+                <div class="user-menu">
+                    {% if (current_user.role or '').lower() == 'admin' %}
+                    <a href="{{ url_for('admin.users_panel') }}" class="btn">Admin Panel</a>
+                    {% endif %}
+                    <span>{{ current_user.name or current_user.username }}</span>
+                    <a href="{{ url_for('auth.logout') }}" class="btn btn-danger">Logout</a>
+                </div>
+            </header>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">
+                {{ message }}
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    {% else %}
+    {% block auth_content %}{% endblock %}
+    {% endif %}
+</body>
+
+</html>

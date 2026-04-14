@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Bills{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <div>
+            <h2>Bills</h2>
+            <p class="text-secondary">Manage vendor bills and payments</p>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+            <a href="{{ url_for('ap.ap_aging') }}" class="btn btn-secondary">AP Aging Report</a>
+            <a href="{{ url_for('ap.new_bill') }}" class="btn btn-primary">+ Create Bill</a>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Bill #</th>
+                <th>Date</th>
+                <th>Vendor</th>
+                <th>Status</th>
+                <th>Due Date</th>
+                <th class="text-right">Total</th>
+                <th class="text-right">Balance Due</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for bill in bills %}
+            <tr>
+                <td><a href="{{ url_for('ap.view_bill', id=bill.id) }}"
+                        style="font-weight: bold; color: var(--primary-color);">{{ bill.bill_number or ('#' ~ bill.id) }}</a></td>
+                <td>{{ bill.date.strftime('%Y-%m-%d') }}</td>
+                <td>{{ bill.vendor.name }}</td>
+                <td>
+                    <span style="padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.875rem; 
+                        background: {% if bill.status == 'Open' %}#f1f5f9; color: #64748b;
+                                    {% elif bill.status == 'Posted' %}#dbeafe; color: #1e40af;
+                                    {% elif bill.status == 'Overdue' %}#fee2e2; color: #991b1b;
+                                    {% elif bill.status == 'Paid' %}#dcfce7; color: #166534;
+                                    {% elif bill.status == 'Cancelled' %}#f1f5f9; color: #94a3b8;
+                                    {% else %}#fee2e2; color: #991b1b;{% endif %}">
+                        {{ bill.status }}
+                    </span>
+                </td>
+                <td>{{ bill.due_date.strftime('%Y-%m-%d') }}</td>
+                <td class="text-right">{{ company_settings.currency_symbol }}{{ "%.2f"|format(bill.total_amount) }}</td>
+                <td class="text-right">
+                    {% if bill.status in ('Posted', 'Overdue') %}
+                        <span style="color: {% if bill.balance_due > 0 %}#ef4444{% else %}#10b981{% endif %}; font-weight:600;">
+                            {{ company_settings.currency_symbol }}{{ "%.2f"|format(bill.balance_due) }}
+                        </span>
+                    {% elif bill.status == 'Paid' %}
+                        <span style="color:#10b981;">Paid</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                    <a href="{{ url_for('ap.view_bill', id=bill.id) }}" class="btn btn-secondary"
+                        style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">View</a>
+                    {% if bill.status in ('Posted', 'Overdue') %}
+                    <a href="{{ url_for('ap.pay_bill', id=bill.id) }}" class="btn btn-primary"
+                        style="padding: 0.25rem 0.5rem; font-size: 0.875rem; background:#10b981; border-color:#10b981;">Pay</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not bills %}
+            <tr>
+                <td colspan="7" style="text-align: center; color: var(--text-secondary); padding: 2rem;">
+                    No bills found. Record your first bill!
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

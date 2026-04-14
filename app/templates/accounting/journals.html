@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Journal Entries{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1.25rem;">General Ledger</h3>
+        <a href="{{ url_for('accounting.create_journal_entry') }}" class="btn btn-primary">+ New Entry</a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>#</th>
+                    <th>Description</th>
+                    <th>Account</th>
+                    <th style="text-align: right;">Debit</th>
+                    <th style="text-align: right;">Credit</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in pagination.items %}
+                {% for item in entry.items %}
+                <tr style="{{ 'border-top: 2px solid var(--border-color);' if loop.first else 'border: none;' }}
+                    {{ 'opacity: 0.5;' if entry.voided else '' }}">
+                    {% if loop.first %}
+                    <td rowspan="{{ entry.items|length }}" style="vertical-align: top; font-weight: 500;">
+                        {{ entry.date.strftime('%Y-%m-%d') }}
+                    </td>
+                    <td rowspan="{{ entry.items|length }}" style="vertical-align: top; color: var(--text-secondary);">
+                        {{ entry.id }}
+                    </td>
+                    <td rowspan="{{ entry.items|length }}" style="vertical-align: top;">
+                        {{ entry.description }}
+                        {% if entry.reference %}
+                        <br><small style="color: var(--text-secondary);">Ref: {{ entry.reference }}</small>
+                        {% endif %}
+                        {% if entry.voided %}
+                        <br><span
+                            style="padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; background: #fee2e2; color: #991b1b;">VOIDED</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+
+                    <td style="color: var(--text-secondary); padding-left: {{ '2rem' if item.credit > 0 else '0' }};">
+                        {{ item.account.code }} - {{ item.account.name }}
+                    </td>
+                    <td style="text-align: right;">
+                        {% if item.debit > 0 %}{{ "%.2f"|format(item.debit) }}{% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        {% if item.credit > 0 %}{{ "%.2f"|format(item.credit) }}{% endif %}
+                    </td>
+                    {% if loop.first %}
+                    <td rowspan="{{ entry.items|length }}" style="vertical-align: top;">
+                        {% if not entry.voided %}
+                        <form method="POST" action="{{ url_for('accounting.void_journal_entry', id=entry.id) }}"
+                            onsubmit="return confirm('Void entry #{{ entry.id }}? This will create a reversing entry.');"
+                            style="margin: 0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <button type="submit" class="btn"
+                                style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: #fef3c7; color: #92400e; border: none; cursor: pointer;">Void</button>
+                        </form>
+                        {% else %}
+                        <span style="font-size: 0.8rem; color: var(--text-secondary);">—</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center">No entries found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 2rem;">
+        {% if pagination.has_prev %}
+        <a href="{{ url_for('accounting.list_journals', page=pagination.prev_num, **request.args) }}" class="btn btn-secondary">← Previous</a>
+        {% else %}
+        <button class="btn btn-secondary" disabled>← Previous</button>
+        {% endif %}
+
+        <span style="padding: 0.5rem 1rem; color: var(--text-secondary);">Page {{ pagination.page }} of {{ pagination.pages }}</span>
+
+        {% if pagination.has_next %}
+        <a href="{{ url_for('accounting.list_journals', page=pagination.next_num, **request.args) }}" class="btn btn-secondary">Next →</a>
+        {% else %}
+        <button class="btn btn-secondary" disabled>Next →</button>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

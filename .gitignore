@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Flask
+instance/
+.webassets-cache
+
+# Node / Frontend
+node_modules/
+dist/
+dist-ssr/
+.npm/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor / Cursor
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+
+# Environment variables
+.env
+.env.local

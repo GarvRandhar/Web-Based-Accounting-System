@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Chart of Accounts{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1.25rem;">All Accounts</h3>
+        <button class="btn btn-primary" onclick="document.getElementById('addAccountModal').style.display='flex'">+ New
+            Account</button>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Parent</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for acc in accounts %}
+                <tr>
+                    <td><span style="font-family: monospace; font-weight: 600;">{{ acc.code }}</span></td>
+                    <td style="padding-left: {{ '2rem' if acc.parent_id else '1rem' }};">
+                        {{ acc.name }}
+                    </td>
+                    <td>
+                        <span style="padding: 2px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: 500;
+                            {% if acc.type == 'Asset' %}background: #e0f2fe; color: #0369a1;
+                            {% elif acc.type == 'Liability' %}background: #fee2e2; color: #991b1b;
+                            {% elif acc.type == 'Equity' %}background: #f3e8ff; color: #6b21a8;
+                            {% elif acc.type == 'Revenue' %}background: #dcfce7; color: #15803d;
+                            {% elif acc.type == 'Expense' %}background: #ffedd5; color: #c2410c;
+                            {% endif %}">
+                            {{ acc.type }}
+                        </span>
+                    </td>
+                    <td>{{ acc.parent.name if acc.parent else '-' }}</td>
+                    <td>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;"
+                                onclick="openEditAccount({{ acc.id }}, '{{ acc.name }}', '{{ acc.type }}', '{{ acc.description or '' }}', '{{ acc.parent_id or '' }}')">Edit</button>
+                            <form method="POST" action="{{ url_for('accounting.delete_account', id=acc.id) }}"
+                                onsubmit="return confirm('Delete account {{ acc.code }} - {{ acc.name }}?');"
+                                style="margin: 0;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                <button type="submit" class="btn"
+                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem; background: #fee2e2; color: #991b1b; border: none; cursor: pointer;">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 2rem;">
+        {% if pagination.has_prev %}
+        <a href="{{ url_for('accounting.list_accounts', page=pagination.prev_num, **request.args) }}" class="btn btn-secondary">← Previous</a>
+        {% else %}
+        <button class="btn btn-secondary" disabled>← Previous</button>
+        {% endif %}
+
+        <span style="padding: 0.5rem 1rem; color: var(--text-secondary);">Page {{ pagination.page }} of {{ pagination.pages }}</span>
+
+        {% if pagination.has_next %}
+        <a href="{{ url_for('accounting.list_accounts', page=pagination.next_num, **request.args) }}" class="btn btn-secondary">Next →</a>
+        {% else %}
+        <button class="btn btn-secondary" disabled>Next →</button>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add Account Modal -->
+<div id="addAccountModal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
+    <div class="card" style="width: 100%; max-width: 500px;">
+        <h3 style="margin-bottom: 1.5rem;">New Account</h3>
+        <form method="POST" action="{{ url_for('accounting.create_account') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label class="form-label">Code *</label>
+                    <input type="text" name="code" class="form-control" required placeholder="e.g. 1030">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Type *</label>
+                    <select name="type" class="form-control" required>
+                        <option value="Asset">Asset</option>
+                        <option value="Liability">Liability</option>
+                        <option value="Equity">Equity</option>
+                        <option value="Revenue">Revenue</option>
+                        <option value="Expense">Expense</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Name *</label>
+                <input type="text" name="name" class="form-control" required placeholder="e.g. Petty Cash">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <input type="text" name="description" class="form-control" placeholder="Optional">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Parent Account</label>
+                <select name="parent_id" class="form-control">
+                    <option value="">None (Top Level)</option>
+                    {% for a in all_accounts %}
+                    <option value="{{ a.id }}">{{ a.code }} - {{ a.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-secondary"
+                    onclick="document.getElementById('addAccountModal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Account</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Account Modal -->
+<div id="editAccountModal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
+    <div class="card" style="width: 100%; max-width: 500px;">
+        <h3 style="margin-bottom: 1.5rem;">Edit Account</h3>
+        <form method="POST" id="editAccountForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <div class="form-group">
+                <label class="form-label">Name *</label>
+                <input type="text" name="name" id="editName" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Type *</label>
+                <select name="type" id="editType" class="form-control" required>
+                    <option value="Asset">Asset</option>
+                    <option value="Liability">Liability</option>
+                    <option value="Equity">Equity</option>
+                    <option value="Revenue">Revenue</option>
+                    <option value="Expense">Expense</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <input type="text" name="description" id="editDescription" class="form-control">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Parent Account</label>
+                <select name="parent_id" id="editParent" class="form-control">
+                    <option value="">None (Top Level)</option>
+                    {% for a in all_accounts %}
+                    <option value="{{ a.id }}">{{ a.code }} - {{ a.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                <button type="button" class="btn btn-secondary"
+                    onclick="document.getElementById('editAccountModal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openEditAccount(id, name, type, description, parentId) {
+        document.getElementById('editAccountForm').action = '/accounting/accounts/' + id + '/edit';
+        document.getElementById('editName').value = name;
+        document.getElementById('editType').value = type;
+        document.getElementById('editDescription').value = description;
+        document.getElementById('editParent').value = parentId || '';
+        document.getElementById('editAccountModal').style.display = 'flex';
+    }
+</script>
+{% endblock %}

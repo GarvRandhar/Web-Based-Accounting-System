@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block auth_content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% set error_message = messages[0][1] if messages else '' %}
+<div id="react-login-root" class="tw-root" data-mode="login" data-csrf-token="{{ csrf_token() }}"
+    data-error="{{ error_message }}" data-login-url="{{ url_for('auth.login') }}"
+    data-register-url="{{ url_for('auth.register') }}">
+</div>
+{% endwith %}
+{% endblock %}

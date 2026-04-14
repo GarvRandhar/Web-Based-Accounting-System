@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Bank Reconciliation{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 2rem;">
+    <h2>Upload Bank Statement</h2>
+    <form action="{{ url_for('reconciliation.upload') }}" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div class="form-group">
+                <label>Select GL Account</label>
+                <select name="account_id" class="form-control" required>
+                    {% for acc in accounts %}
+                    <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Upload CSV <small style="color: var(--text-secondary);">(columns: Date, Description, Amount)</small></label>
+                <input type="file" name="file" class="form-control" accept=".csv" required>
+            </div>
+
+            <div class="form-group">
+                <label>Opening Balance (Bank Statement)</label>
+                <input type="number" name="start_balance" class="form-control" step="0.01"
+                       placeholder="e.g. 10000.00" required>
+                <small style="color: var(--text-secondary);">Balance at the start of the statement period.</small>
+            </div>
+
+            <div class="form-group">
+                <label>Closing Balance (Bank Statement)</label>
+                <input type="number" name="end_balance" class="form-control" step="0.01"
+                       placeholder="e.g. 15250.00" required>
+                <small style="color: var(--text-secondary);">Balance at the end of the statement period.</small>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Upload & Reconcile</button>
+    </form>
+    <p class="text-secondary" style="margin-top: 0.75rem; font-size: 0.875rem;">
+        CSV Format: <code>Date (YYYY-MM-DD), Description, Amount</code> — Deposits are positive (+), withdrawals are negative (−).
+    </p>
+</div>
+
+<div class="card">
+    <h2>Recent Statements</h2>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Period</th>
+                <th>Account</th>
+                <th>Transactions</th>
+                <th>Opening Balance</th>
+                <th>Closing Balance</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for stmt in statements %}
+            <tr>
+                <td>{{ stmt.start_date }} → {{ stmt.end_date }}</td>
+                <td>{{ stmt.account.name if stmt.account else stmt.account_id }}</td>
+                <td>{{ stmt.transactions|length }}</td>
+                <td>${{ "%.2f"|format(stmt.starting_balance) }}</td>
+                <td>${{ "%.2f"|format(stmt.ending_balance) }}</td>
+                <td>
+                    <a href="{{ url_for('reconciliation.view', id=stmt.id) }}"
+                        class="btn btn-primary btn-sm">Reconcile</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="text-center">No statements uploaded yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

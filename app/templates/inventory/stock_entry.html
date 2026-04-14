@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Stock Entry — Inventory{% endblock %}
+{% block page_title %}New Stock Entry{% endblock %}
+
+{% block content %}
+<div class="card">
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:.75rem; margin-bottom:1rem;">
+            <div class="form-group">
+                <label>Entry Type *</label>
+                <select name="entry_type" id="entryType" class="form-control" required onchange="toggleWarehouses()">
+                    <option value="Receipt">Receipt (Stock In)</option>
+                    <option value="Issue">Issue (Stock Out)</option>
+                    <option value="Transfer">Transfer</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Date *</label>
+                <input type="date" name="date" class="form-control" required value="{{ now }}">
+            </div>
+            <div class="form-group">
+                <label>Reference</label>
+                <input type="text" name="reference" class="form-control" placeholder="PO#, GRN#, etc.">
+            </div>
+            <div class="form-group" id="sourceWhGroup" style="display:none;">
+                <label>Source Warehouse</label>
+                <select name="source_warehouse_id" class="form-control">
+                    <option value="">-- Select --</option>
+                    {% for wh in warehouses %}
+                    <option value="{{ wh.id }}">{{ wh.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" id="targetWhGroup">
+                <label>Target Warehouse *</label>
+                <select name="target_warehouse_id" class="form-control">
+                    <option value="">-- Select --</option>
+                    {% for wh in warehouses %}
+                    <option value="{{ wh.id }}">{{ wh.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="grid-column: span 3;">
+                <label>Notes</label>
+                <input type="text" name="notes" class="form-control" placeholder="Optional notes">
+            </div>
+        </div>
+
+        <h4 style="margin-bottom:.5rem;">Items</h4>
+        <table class="table" id="itemsTable">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Quantity</th>
+                    <th>Rate</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <select name="product_id[]" class="form-control" required>
+                            {% for p in products %}
+                            <option value="{{ p.id }}">{{ p.sku }} — {{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><input type="number" name="quantity[]" class="form-control" step="0.001" required value="1"></td>
+                    <td><input type="number" name="rate[]" class="form-control" step="0.01" value="0"></td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+        <button type="button" class="btn btn-secondary" onclick="addRow()" style="margin-bottom:1rem;">+ Add Row</button>
+        <br>
+        <button type="submit" class="btn btn-primary">Submit Stock Entry</button>
+    </form>
+</div>
+
+<script>
+function toggleWarehouses() {
+    const t = document.getElementById('entryType').value;
+    document.getElementById('sourceWhGroup').style.display = (t === 'Issue' || t === 'Transfer') ? '' : 'none';
+    document.getElementById('targetWhGroup').style.display = (t === 'Receipt' || t === 'Transfer') ? '' : 'none';
+}
+function addRow() {
+    const tbody = document.querySelector('#itemsTable tbody');
+    const row = tbody.rows[0].cloneNode(true);
+    row.querySelectorAll('input').forEach(i => i.value = i.type === 'number' ? (i.step === '0.001' ? '1' : '0') : '');
+    const td = document.createElement('td');
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'btn btn-danger btn-sm'; btn.textContent = '✕';
+    btn.onclick = () => row.remove();
+    td.appendChild(btn);
+    row.lastElementChild.replaceWith(td);
+    tbody.appendChild(row);
+}
+toggleWarehouses();
+</script>
+{% endblock %}

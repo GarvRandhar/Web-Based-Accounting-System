@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Cash Flow Statement{% endblock %}
+{% block page_title %}Cash Flow Statement{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 800px;">
+    <div class="report-header">
+        <h2>{{ company_settings.company_name }}</h2>
+        <p>Statement of Cash Flows</p>
+        <p>{{ start_date.strftime('%B %d, %Y') }} — {{ end_date.strftime('%B %d, %Y') }}</p>
+    </div>
+
+    <div style="margin-bottom: 1rem; display: flex; justify-content: flex-end;">
+        <form method="GET" style="display: flex; gap: 0.5rem; align-items: center;">
+            <input type="date" name="start_date" class="form-control" style="width: auto;" value="{{ start_date }}"
+                required>
+            <span class="text-secondary">to</span>
+            <input type="date" name="end_date" class="form-control" style="width: auto;" value="{{ end_date }}"
+                required>
+            <button type="submit" class="btn btn-primary">Update</button>
+        </form>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th class="text-right">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td colspan="2"
+                    style="font-weight: 600; padding-top: 1rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 1px solid var(--border-light);">
+                    Cash Flows from Operating Activities</td>
+            </tr>
+            <tr>
+                <td style="padding-left: 1.5rem;">Net Cash from Operating Activities</td>
+                <td class="text-right" style="font-variant-numeric: tabular-nums;">{{ company_settings.currency_symbol
+                    }}{{ "%.2f"|format(operating_activities) }}</td>
+            </tr>
+
+            <tr style="font-weight: 600; border-top: 1px solid var(--border-color);">
+                <td>Net Change in Cash</td>
+                <td class="text-right"
+                    style="font-variant-numeric: tabular-nums; color: {{ 'var(--success-color)' if net_change >= 0 else 'var(--danger-color)' }}">
+                    {{ company_settings.currency_symbol }}{{ "%.2f"|format(net_change) }}</td>
+            </tr>
+
+            <tr>
+                <td>Cash at Beginning of Period</td>
+                <td class="text-right" style="font-variant-numeric: tabular-nums;">{{ company_settings.currency_symbol
+                    }}{{ "%.2f"|format(starting_balance) }}</td>
+            </tr>
+
+            <tr style="font-weight: 700; border-top: 2px solid var(--text-primary);">
+                <td>Cash at End of Period</td>
+                <td class="text-right" style="font-variant-numeric: tabular-nums;">{{ company_settings.currency_symbol
+                    }}{{ "%.2f"|format(ending_balance) }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Cash Flow Chart -->
+    <div style="margin-top: 1.5rem;">
+        <div class="chart-card">
+            <h3>Cash Position</h3>
+            <div style="height: 180px;"><canvas id="cashChart"></canvas></div>
+        </div>
+    </div>
+
+    <div style="margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
+        <a href="{{ url_for('reports.index') }}" class="btn btn-secondary">← Back</a>
+        <button onclick="window.print()" class="btn btn-primary">Print / Save as PDF</button>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.font.size = 11;
+        Chart.defaults.color = '#6b7385';
+
+        new Chart(document.getElementById('cashChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Beginning', 'Net Change', 'Ending'],
+                datasets: [{
+                    data: [{{ starting_balance }}, {{ net_change }}, {{ ending_balance }}],
+        backgroundColor: ['#d4d8e3', {{ "'#0d7a3f'" if net_change >= 0 else "'#c0392b'" }}, '#2c5cc5'],
+        borderRadius: 2,
+        barPercentage: 0.5
+            }]
+        },
+        options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { display: false } },
+            y: { grid: { color: '#ebeef2', drawBorder: false }, beginAtZero: true }
+        }
+    }
+    });
+});
+</script>
+{% endblock %}

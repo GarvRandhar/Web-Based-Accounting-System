@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Balance Sheet</title>
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .table td,
+        .table th {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .bold {
+            font-weight: bold;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            background-color: #f8f9fa;
+            padding: 5px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>Balance Sheet</h1>
+        <p>As of {{ data.date }}</p>
+    </div>
+
+    <div class="section-title">Assets</div>
+    <table class="table">
+        {% for acc in data.assets.accounts %}
+        <tr>
+            <td>{{ acc.code }} - {{ acc.name }}</td>
+            <td class="text-right">{{ "%.2f"|format(acc.balance) }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="bold">
+            <td>Total Assets</td>
+            <td class="text-right">{{ "%.2f"|format(data.assets.total) }}</td>
+        </tr>
+    </table>
+
+    <div class="section-title">Liabilities</div>
+    <table class="table">
+        {% for acc in data.liabilities.accounts %}
+        <tr>
+            <td>{{ acc.code }} - {{ acc.name }}</td>
+            <td class="text-right">{{ "%.2f"|format(acc.balance) }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="bold">
+            <td>Total Liabilities</td>
+            <td class="text-right">{{ "%.2f"|format(data.liabilities.total) }}</td>
+        </tr>
+    </table>
+
+    <div class="section-title">Equity</div>
+    <table class="table">
+        {% for acc in data.equity.accounts %}
+        <tr>
+            <td>{{ acc.code }} - {{ acc.name }}</td>
+            <td class="text-right">{{ "%.2f"|format(acc.balance) }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="bold">
+            <td>Total Equity</td>
+            <td class="text-right">{{ "%.2f"|format(data.equity.total) }}</td>
+        </tr>
+    </table>
+</body>
+
+</html>

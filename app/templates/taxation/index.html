@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Tax Groups — Taxation{% endblock %}
+{% block page_title %}Tax Groups{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:1rem;">
+    <div class="section-header"><h3>Create Tax Group</h3></div>
+    <p class="text-secondary text-sm" style="margin-bottom:.75rem;">
+        Combine individual tax rates into a composite group (e.g. GST 18% = CGST 9% + SGST 9%).
+    </p>
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:.75rem; margin-bottom:.75rem;">
+            <div class="form-group">
+                <label>Group Name *</label>
+                <input type="text" name="name" class="form-control" required placeholder="e.g. GST 18%">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <input type="text" name="description" class="form-control" placeholder="Optional">
+            </div>
+        </div>
+        <div class="form-group" style="margin-bottom:.75rem;">
+            <label>Select Tax Components *</label>
+            <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+                {% for tax in taxes %}
+                <label style="display:flex; align-items:center; gap:.25rem; cursor:pointer;">
+                    <input type="checkbox" name="tax_ids[]" value="{{ tax.id }}">
+                    {{ tax.name }} ({{ tax.rate }}%)
+                </label>
+                {% else %}
+                <span class="text-secondary">No individual tax rates defined. Create them in Settings first.</span>
+                {% endfor %}
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Create Tax Group</button>
+    </form>
+</div>
+
+<div class="card">
+    <div class="section-header"><h3>Active Tax Groups</h3></div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Components</th>
+                <th class="text-right">Total Rate</th>
+                <th>Description</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for g in tax_groups %}
+            <tr>
+                <td><strong>{{ g.name }}</strong></td>
+                <td>
+                    {% for item in g.items %}
+                    <span class="badge badge-posted">{{ item.tax.name }} ({{ item.tax.rate }}%)</span>
+                    {% endfor %}
+                </td>
+                <td class="text-right">{{ "%.2f"|format(g.total_rate) }}%</td>
+                <td class="text-secondary">{{ g.description or '—' }}</td>
+                <td>
+                    <form method="POST" action="{{ url_for('taxation.delete_group', id=g.id) }}" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Deactivate this tax group?')">Deactivate</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-secondary">No tax groups created yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

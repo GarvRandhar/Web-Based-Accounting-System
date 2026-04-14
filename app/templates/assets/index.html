@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Fixed Assets{% endblock %}
+{% block page_title %}Asset Register{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:1rem;">
+    <div class="section-header">
+        <h3>Assets ({{ current_status }})</h3>
+        <div>
+            <a href="{{ url_for('assets.index', status='Active') }}" class="btn {{ 'btn-primary' if current_status == 'Active' else 'btn-secondary' }} btn-sm">Active</a>
+            <a href="{{ url_for('assets.index', status='Disposed') }}" class="btn {{ 'btn-primary' if current_status == 'Disposed' else 'btn-secondary' }} btn-sm">Disposed</a>
+            <a href="{{ url_for('assets.index', status='Sold') }}" class="btn {{ 'btn-primary' if current_status == 'Sold' else 'btn-secondary' }} btn-sm">Sold</a>
+            <a href="{{ url_for('assets.new_asset') }}" class="btn btn-primary btn-sm" style="margin-left:.5rem;">+ New Asset</a>
+        </div>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Purchase Date</th>
+                <th class="text-right">Cost</th>
+                <th class="text-right">Book Value</th>
+                <th>Method</th>
+                <th>Life (Yrs)</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in assets %}
+            <tr>
+                <td class="text-secondary">{{ a.asset_code }}</td>
+                <td>{{ a.name }}</td>
+                <td>{{ a.purchase_date.strftime('%Y-%m-%d') }}</td>
+                <td class="text-right">{{ "%.2f"|format(a.purchase_price) }}</td>
+                <td class="text-right"><strong>{{ "%.2f"|format(a.book_value) }}</strong></td>
+                <td><span class="badge badge-posted">{{ a.depreciation_method }}</span></td>
+                <td>{{ a.useful_life_years }}</td>
+                <td><a href="{{ url_for('assets.detail', id=a.id) }}" class="text-accent">View →</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-secondary">No assets found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

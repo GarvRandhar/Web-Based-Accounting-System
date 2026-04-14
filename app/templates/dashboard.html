@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- KPI Metrics -->
+<div class="metrics-grid">
+    <div class="metric-card">
+        <div class="metric-label">Total Assets</div>
+        <div class="metric-value">{{ company_settings.currency_symbol }}{{ "%.2f"|format(metrics.assets) }}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Total Liabilities</div>
+        <div class="metric-value text-danger">{{ company_settings.currency_symbol }}{{
+            "%.2f"|format(metrics.liabilities) }}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Net Equity</div>
+        <div class="metric-value">{{ company_settings.currency_symbol }}{{ "%.2f"|format(metrics.equity) }}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Net Income (YTD)</div>
+        <div class="metric-value"
+            style="color: {{ 'var(--success-color)' if metrics.net_income >= 0 else 'var(--danger-color)' }}">{{
+            company_settings.currency_symbol }}{{ "%.2f"|format(metrics.net_income) }}</div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div style="display: grid; grid-template-columns: 3fr 2fr; gap: 1rem; margin-bottom: 1rem;">
+    <div class="chart-card">
+        <h3>Revenue vs Expenses</h3>
+        <div style="height: 220px;">
+            <canvas id="revenueChart"></canvas>
+        </div>
+    </div>
+    <div class="chart-card">
+        <h3>Expense Breakdown</h3>
+        <div style="height: 220px;">
+            <canvas id="expenseChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const chartsData = JSON.parse('{{ charts|tojson|safe }}');
+
+        /* Professional chart defaults */
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.font.size = 11;
+        Chart.defaults.color = '#6b7385';
+
+        /* Revenue vs Expenses — clean bar chart */
+        new Chart(document.getElementById('revenueChart'), {
+            type: 'bar',
+            data: {
+                labels: chartsData.monthly.labels,
+                datasets: [
+                    {
+                        label: 'Revenue',
+                        data: chartsData.monthly.datasets[0].data,
+                        backgroundColor: '#2c5cc5',
+                        borderRadius: 2,
+                        barPercentage: 0.6,
+                        categoryPercentage: 0.7
+                    },
+                    {
+                        label: 'Expenses',
+                        data: chartsData.monthly.datasets[1].data,
+                        backgroundColor: '#d4d8e3',
+                        borderRadius: 2,
+                        barPercentage: 0.6,
+                        categoryPercentage: 0.7
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        align: 'end',
+                        labels: { boxWidth: 10, padding: 16, font: { size: 11 } }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 10 } }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#ebeef2', drawBorder: false },
+                        ticks: { font: { size: 10 } }
+                    }
+                }
+            }
+        });
+
+        /* Expense Breakdown — clean doughnut */
+        new Chart(document.getElementById('expenseChart'), {
+            type: 'doughnut',
+            data: {
+                labels: chartsData.expenses.labels,
+                datasets: [{
+                    data: chartsData.expenses.datasets[0].data,
+                    backgroundColor: ['#2c5cc5', '#5a8dee', '#94b8f5', '#c5d5f7', '#e8eef8', '#d4d8e3'],
+                    borderWidth: 1,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { boxWidth: 8, padding: 10, font: { size: 11 } }
+                    }
+                }
+            }
+        });
+    });
+</script>
+
+<!-- Receivables & Payables -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+    <!-- Recent Invoices -->
+    <div class="card">
+        <div class="section-header">
+            <h3>Recent Invoices</h3>
+            <a href="{{ url_for('ar.invoices') }}" class="text-accent text-sm">View All →</a>
+        </div>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Inv #</th>
+                    <th>Customer</th>
+                    <th class="text-right">Amount</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for invoice in recent_invoices %}
+                <tr>
+                    <td><a href="{{ url_for('ar.view_invoice', id=invoice.id) }}">#{{ invoice.id }}</a></td>
+                    <td>{{ invoice.customer.name }}</td>
+                    <td class="text-right">{{ company_settings.currency_symbol }}{{ "%.2f"|format(invoice.total_amount)
+                        }}</td>
+                    <td>
+                        <span class="badge
+                            {% if invoice.status == 'Draft' %}badge-draft
+                            {% elif invoice.status == 'Paid' %}badge-paid
+                            {% elif invoice.status == 'Overdue' %}badge-overdue
+                            {% else %}badge-sent{% endif %}">
+                            {{ invoice.status }}
+                        </span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-secondary text-center">No recent invoices.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Bills to Pay -->
+    <div class="card">
+        <div class="section-header">
+            <h3>Bills to Pay</h3>
+            <a href="{{ url_for('ap.bills') }}" class="text-accent text-sm">View All →</a>
+        </div>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Due Date</th>
+                    <th>Vendor</th>
+                    <th class="text-right">Amount</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bill in bills_to_pay %}
+                <tr>
+                    <td>{{ bill.due_date.strftime('%b %d') }}</td>
+                    <td>{{ bill.vendor.name }}</td>
+                    <td class="text-right">{{ company_settings.currency_symbol }}{{ "%.2f"|format(bill.total_amount) }}
+                    </td>
+                    <td><span class="badge badge-open">{{ bill.status }}</span></td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-secondary text-center">No open bills.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Recent Journal Entries -->
+<div class="card">
+    <div class="section-header">
+        <h3>Recent Activity</h3>
+        <a href="{{ url_for('accounting.create_journal_entry') }}" class="btn btn-primary">+ New Entry</a>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Ref #</th>
+                <th class="text-right">Amount</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in recent_entries %}
+            <tr>
+                <td>{{ entry.date.strftime('%Y-%m-%d') }}</td>
+                <td>{{ entry.description }}</td>
+                <td class="text-secondary">{{ entry.reference or '—' }}</td>
+                <td class="text-right">{{ company_settings.currency_symbol }}{{ "%.2f"|format(entry.total_debit) }}</td>
+                <td><span class="badge badge-posted">Posted</span></td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="text-center text-secondary">No transactions found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

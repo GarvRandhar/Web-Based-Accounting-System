@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Salary Components — Payroll{% endblock %}
+{% block page_title %}Salary Components{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:1rem;">
+    <div class="section-header"><h3>Add Salary Component</h3></div>
+    <form method="POST" style="display:flex; gap:.75rem; align-items:end; flex-wrap:wrap;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group" style="flex:2;">
+            <label>Name *</label>
+            <input type="text" name="name" class="form-control" required placeholder="e.g. Basic Pay">
+        </div>
+        <div class="form-group" style="flex:1;">
+            <label>Type *</label>
+            <select name="component_type" class="form-control" required>
+                <option value="Earning">Earning</option>
+                <option value="Deduction">Deduction</option>
+            </select>
+        </div>
+        <div class="form-group" style="flex:1;">
+            <label>GL Account</label>
+            <select name="account_id" class="form-control">
+                <option value="">— None —</option>
+                {% for a in accounts %}
+                <option value="{{ a.id }}">{{ a.code }} — {{ a.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <label style="display:flex; align-items:center; gap:.25rem; cursor:pointer;">
+            <input type="checkbox" name="is_statutory"> Statutory
+        </label>
+        <button type="submit" class="btn btn-primary">Add</button>
+    </form>
+</div>
+
+<div class="card">
+    <div class="section-header"><h3>All Components</h3></div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Statutory</th>
+                <th>GL Account</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in components %}
+            <tr>
+                <td>{{ c.name }}</td>
+                <td><span class="badge {{ 'badge-paid' if c.component_type == 'Earning' else 'badge-overdue' }}">{{ c.component_type }}</span></td>
+                <td>{{ '✓' if c.is_statutory else '—' }}</td>
+                <td class="text-secondary">{{ c.account.name if c.account else '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-secondary">No salary components.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
