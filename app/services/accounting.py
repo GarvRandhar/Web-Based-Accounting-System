@@ -190,9 +190,9 @@ class AccountingService:
             monthly_data[key] = {'revenue': 0, 'expense': 0}
             # Increment month
             if curr.month == 12:
-                curr = curr.replace(year=curr.year+1, month=1)
+                curr = curr.replace(year=curr.year+1, month=1, day=1)
             else:
-                curr = curr.replace(month=curr.month+1)
+                curr = curr.replace(month=curr.month+1, day=1)
         
         # Query items
         # Join JournalEntry to filter by date
